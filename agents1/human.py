@@ -27,7 +27,6 @@ class Human(HumanAgentBrain):
         return super().filter_observations(state)
 
     def decide_on_bw4t_action(self, state:State):
-        print("test")
         return super().decide_on_bw4t_action(state)
 
 
