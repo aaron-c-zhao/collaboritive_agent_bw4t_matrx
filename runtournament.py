@@ -7,14 +7,6 @@ from bw4t.statistics import Statistics
 
 from agents1.human import Human
 from agents1.randomagent import RandomAgent
-from agents1.patrollingagent import PatrollingAgent
-from agents1.naive_agent import NaiveAgent
-from agents1.planningagent import PlanningAgent
-from agents1.planningagent2 import PlanningAgent2
-from agents1.planningagent3 import PlanningAgent3
-from agents1.messagingagent import MessagingAgent
-from agents1.colorblindagent import ColorBlindAgent
-from agents1.shapeblindagent import ShapeBlindAgent
 
 
 """
