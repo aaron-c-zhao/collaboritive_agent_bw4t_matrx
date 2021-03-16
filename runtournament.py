@@ -25,9 +25,9 @@ def checkNoDuplicates(names:list):
 
 if __name__ == "__main__":
     agents = [
-        {'name':'agent1', 'botclass':PlanningAgent3, 'settings':{'slowdown':1}},
-        {'name':'agent2', 'botclass':PlanningAgent3, 'settings':{'slowdown':3}},
-        {'name':'patrol1', 'botclass':PatrollingAgent, 'settings':{'slowdown':1}},
+        {'name':'agent1', 'botclass':RandomAgent, 'settings':{'slowdown':1}},
+        {'name':'agent2', 'botclass':RandomAgent, 'settings':{'slowdown':3}},
+        {'name':'patrol1', 'botclass':RandomAgent, 'settings':{'slowdown':1}},
         {'name':'human1', 'botclass':Human, 'settings':{'slowdown':1}}
         ]
     teamsize=3

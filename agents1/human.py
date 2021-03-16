@@ -7,6 +7,7 @@ from matrx.agents.agent_utils.state import State # type: ignore
 
 from bw4t.BW4TBrain import BW4TBrain
 from matrx.agents import HumanAgentBrain # type: ignore
+from agents1.Group42Map import Map
 
 class Human(HumanAgentBrain):
     '''
@@ -15,4 +16,13 @@ class Human(HumanAgentBrain):
     '''
     def __init__(self, slowdown:int):
         super().__init__()
+        self.map = None
+    
+
+
+    def filter_observations(self, state):
+        if self.map is None:
+            self.map = Map(state)
+        self.map.update_map(None, state)
+        return state # Why need to returning state
     

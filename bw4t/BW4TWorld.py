@@ -261,6 +261,7 @@ class BW4TWorld:
                  visualize_colour=self._worldsettings['drop_off_color'], 
                  drop_zone_nr=nr_zone, is_drop_zone=True, 
                  is_goal_block=False, is_collectable=False)
+            print (nr_zone)
     
             # Go through all needed blocks
             for nr_block in range(self._worldsettings['nr_blocks_needed']):
