@@ -113,8 +113,10 @@ class Map:
             if block['is_goal_block']: # for ghost block which can not be collected, so only update the drop zone
                 for drop_spot in self.drop_zone:
                     if to_be_updated['location'] == drop_spot['location']:
-                        drop_spot['color'] = to_be_updated['color'] if to_be_updated['color']
-                        drop_spot['shape'] = to_be_updated['shape'] if to_be_updated['shape']
+                        if to_be_updated['color']:
+                            drop_spot['color'] = to_be_updated['color']
+                        if to_be_updated['shape']:
+                            drop_spot['shape'] = to_be_updated['shape'] 
 
 
     def _is_block_exist(self, target:dict):
