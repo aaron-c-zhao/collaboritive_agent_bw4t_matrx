@@ -37,7 +37,8 @@ class Map:
         # update block info according to agent's own discovery
         blocks = state.get_with_property({'is_collectable': True})
         if blocks is not None: 
-            self._update_block(blocks)
+            return self._update_block(blocks)
+            
         if message is not None:
             if message['type'] == 'BlockFound':
                 self._update_block(message['blocks'])
@@ -45,6 +46,19 @@ class Map:
                 self._pop_block(message['block'])
             elif message['type'] == 'Dropped':
                 self._drop_block(message['drop_info'])
+
+        return None
+
+    def _is_block_exist(self, target:dict):
+        '''
+        @return if the block has been found before, then return the saved instance. Otherwise, return None.
+        '''
+        for block in self.blocks:
+            if block['id'] == target['obj_id']:
+                return block
+        return None
+
+
 
 
     def _drop_block(self, drop_info:dict):
@@ -87,21 +101,27 @@ class Map:
         return visited
         
     def _update_block(self, blocks):
+        res = []
         for block in blocks:
             to_be_updated = self._is_block_exist(block) # check if the block is already in the collection
+            updated = False
             if to_be_updated is None: # add new entry into the collection
                 to_be_updated = {
                     'id': block['obj_id'],
                     'location': block['location'],
                     'room': self._extract_room(block['name']),
-                    'shape': block['visualization']['shape'] if block['visualization']['shape'] else None,
+                    'shape': block['visualization']['shape'] if block['visualization']['shape'] is not None else None,
                     'color': block['visualization']['colour'] if block['visualization']['colour'] else None,
                     'visited': self._get_block_status(block)
                     }
+                updated = True
             else: # update shape, color and status of the block if the block is in the collection
                 self.blocks.remove(to_be_updated)
+                if to_be_updated['location'] != block['location'] or to_be_updated['shape'] != block['visualization']['shape'] or to_be_updated['color'] != block['visualization']['colour']:
+                    updated = True
                 to_be_updated['location'] = block['location']
-                to_be_updated['shape'] = block['visualization']['shape'] if block['visualization']['shape'] else None
+                to_be_updated['shape'] = block['visualization']['shape'] if block['visualization']['shape'] is not None else None
+                
                 to_be_updated['color'] = block['visualization']['colour'] if block['visualization']['colour'] else None
                 to_be_updated['visited'] = self._get_block_status(block)
             # if the block discovered is in the drop zone then update the drop_zone
@@ -110,6 +130,8 @@ class Map:
                     if to_be_updated['location'] == drop_spot['location']:
                         drop_spot['filled'] = to_be_updated
                 self.blocks.append(to_be_updated) # only update the blocks when the block is collectable
+                if updated is True:
+                    res.append(to_be_updated) # return list of updated blocks
             if block['is_goal_block']: # for ghost block which can not be collected, so only update the drop zone
                 for drop_spot in self.drop_zone:
                     if to_be_updated['location'] == drop_spot['location']:
@@ -117,7 +139,18 @@ class Map:
                             drop_spot['color'] = to_be_updated['color']
                         if to_be_updated['shape']:
                             drop_spot['shape'] = to_be_updated['shape'] 
+                            
+        return res
 
+    def _parse_block(self, block):
+        res = {
+            'id': block['obj_id'],
+            'location': block['location'],
+            'room': self._extract_room(block['name']),
+            'shape': block['visualization']['shape'] if block['visualization']['shape'] is not None else None,
+            'color': block['visualization']['colour'] if block['visualization']['colour'] else None,
+            'visited': self._get_block_status(block)
+        }
 
     def _is_block_exist(self, target:dict):
         '''
@@ -140,6 +173,7 @@ class Map:
             'filled': None  # whether it has been filled with correct block
             }, drop_zone_objs)) 
         self.drop_zone.reverse()
+
 
     def _get_rooms(self, state):
         self.rooms = []
@@ -256,13 +290,3 @@ class Map:
         for room in self.rooms:
             if room['name'] == room_name:
                 room['visited'] = True
-        
-    
-            
-
-    
-
-
-    
-        
-        

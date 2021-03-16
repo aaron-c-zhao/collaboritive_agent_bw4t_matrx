@@ -18,8 +18,8 @@ press the start button in god mode to start the session.
 if __name__ == "__main__":
     agents = [
         {'name':'agent2', 'botclass':RandomAgent, 'settings':{'slowdown':1, 'colorblind':True}},
-        {'name':'agent3', 'botclass':RandomAgent, 'settings':{'slowdown':1, 'shapeblind':True}},
-        {'name':'human1', 'botclass':Human, 'settings':{'slowdown':1}}
+        {'name':'human1', 'botclass':Human, 'settings':{'slowdown':1}},
+        {'name':'human2', 'botclass':Human, 'settings':{'slowdown':1}}
         ]
 
     print("Started world...")
