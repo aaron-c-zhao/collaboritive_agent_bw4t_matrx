@@ -9,6 +9,8 @@ from bw4t.BW4TBrain import BW4TBrain
 from matrx.agents import HumanAgentBrain # type: ignore
 from agents1.Group42Map import Map
 
+from matrx.messages import Message
+
 class Human(HumanAgentBrain):
     '''
     Human that can also handle slowdown. Currently not really implemented,
@@ -24,5 +26,21 @@ class Human(HumanAgentBrain):
         if self.map is None:
             self.map = Map(state)
         self.map.update_map(None, state)
+
+        blocks = state[{'is_collectable': True}]
+        self.send_message(Message(content=f"testtests  " + str(blocks),
+                                      from_id=self.agent_id,
+                                      to_id=self.agent_id))
+
         return state # Why need to returning state
     
+
+
+    # def filter_observations(self, state): 
+
+    #     return super().filter_observations(state)
+
+    def decide_on_bw4t_action(self, state:State):
+        return super().decide_on_bw4t_action(state)
+
+

@@ -8,7 +8,7 @@ from setuptools.sandbox import save_path   # type: ignore
 
 from agents1.human import Human
 from agents1.randomagent import RandomAgent
-
+from agents1.human import Human
 
 """
 This runs a single session. You have to log in on localhost:3000 and 
