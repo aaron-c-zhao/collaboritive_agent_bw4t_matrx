@@ -51,6 +51,9 @@ class Map:
         for drop_spot in self.drop_zone:
             if drop_spot['location'] == drop_info['location']:
                 drop_spot['filled'] = drop_info['block']
+                return
+        self.blocks.append(drop_info['block']) # if the agent drop the block outside of the dropzone, then add the block back to collection
+        
         
 
     def _pop_block(self, block:dict):
@@ -102,10 +105,16 @@ class Map:
                 to_be_updated['color'] = block['visualization']['colour'] if block['visualization']['colour'] else None
                 to_be_updated['visited'] = self._get_block_status(block)
             # if the block discovered is in the drop zone then update the drop_zone
-            for drop_zone_spot in self.drop_zone:
-                if to_be_updated['location'] == drop_zone_spot['location']:
-                    drop_zone_spot['filled'] = to_be_updated
-            self.blocks.append(to_be_updated)
+            if block['is_collectable']: 
+                for drop_spot in self.drop_zone:
+                    if to_be_updated['location'] == drop_spot['location']:
+                        drop_spot['filled'] = to_be_updated
+                self.blocks.append(to_be_updated) # only update the blocks when the block is collectable
+            if block['is_goal_block']: # for ghost block which can not be collected, so only update the drop zone
+                for drop_spot in self.drop_zone:
+                    if to_be_updated['location'] == drop_spot['location']:
+                        drop_spot['color'] = to_be_updated['color'] if to_be_updated['color']
+                        drop_spot['shape'] = to_be_updated['shape'] if to_be_updated['shape']
 
 
     def _is_block_exist(self, target:dict):
@@ -175,8 +184,12 @@ class Map:
         dist = []
         rooms = self.get_unvisited_rooms()
         for room in rooms:
+            if room['visited']:
+                continue
             for door in room['doors']:
                 dist.append([room['room_name'], matrx.utils.get_distance(loc, door['location'])])
+        if len(dist) == 0:
+            return None
         return min(dist, key = lambda x: x[1])[0]
             
     def get_candidate_blocks_shape(self):
