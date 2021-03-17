@@ -41,7 +41,9 @@ class Human(HumanAgentBrain):
                 self._broadcast('BlockFound', new_blocks)
 
         # for testing
-        self.log("current blocks: " + str(self.map.blocks))
+        # self.log("current blocks: " + str(self.map.blocks))
+        # self.log("goal blocks:" + str(self.map.drop_zone))
+        self.log("matching blocks:" + str(self.map.get_matching_blocks()))
 
         return state # Why need to returning state
 

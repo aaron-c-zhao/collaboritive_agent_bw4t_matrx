@@ -47,7 +47,7 @@ Here only define the most critical attributes. The message could also contain at
               'room': room_name, # see rooms above. Where the blocks resides
               'shape': 0 - 2,
               'color': "#ffffff",
-            'visited:' 1 - 3 # 1 only color, 2 only shape, 3 has both shape & color 
+            'visited:' 1 - 3 # 1 only shape, 2 only color, 3 has both shape & color 
           }
       }
   }
@@ -104,7 +104,7 @@ Here only define the most critical attributes. The message could also contain at
         'room': room_name, # see rooms above. Where the blocks resides
         'shape': 0 - 2,
         'color': "#ffffff",
-        'visited:' 1 - 3 # 1 only color, 2 only shape, 3 has both shape & color
+        'visited:' 1 - 3 # 1 only shape, 2 only color, 3 has both shape & color
     }
 ]
 ```

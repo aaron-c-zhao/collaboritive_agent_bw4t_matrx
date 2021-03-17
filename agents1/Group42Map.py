@@ -45,10 +45,10 @@ class Map:
             for ghost_block in ghost_blocks_parsed:
                 for drop_spot in self.drop_zone: 
                     if ghost_block['location'] == drop_spot['location']:
-                            if ghost_block['colour']:
-                                drop_spot['colour'] = ghost_block['colour'] 
-                            if ghost_block['shape']:
-                                drop_spot['shape'] = ghost_block['shape']
+                            if ghost_block['colour'] is not None:
+                                drop_spot['properties']['colour'] = ghost_block['colour'] 
+                            if ghost_block['shape'] is not None:
+                                drop_spot['properties']['shape'] = ghost_block['shape']
 
 
     def _drop_block(self, drop_info:dict):
@@ -188,13 +188,13 @@ class Map:
         '''
         return a set of wanted colours. if the goal block has been filled, then its colour is ignored.
         '''
-        return set([x['properties']['colour'] for x in self.blocks if x['properties']['colour'] and x['filled'] is not None])
+        return set([x['properties']['colour'] for x in self.blocks if x['properties']['colour'] is not None and x['filled'] is None])
 
     def _get_goal_shape_set(self):
         '''
         return a set of wanted shapes, if the goal block has been filled, then its colour is ignored.
         '''
-        return set([x['properties']['shape'] for x in self.blocks if x['properties']['shape'] and x['filled'] is not None])
+        return set([x['properties']['shape'] for x in self.blocks if x['properties']['shape'] is not None and x['filled'] is None])
 
 
 
@@ -262,7 +262,7 @@ class Map:
         '''
         res = []
         for block in self.blocks:
-            if block['visited'] == 2 and block['colour'] in self._get_goal_colour_set():
+            if block['visited'] == 1 and block['colour'] in self._get_goal_colour_set():
                 res.append(block)
         return res
                 
@@ -289,13 +289,14 @@ class Map:
         '''
         res = []
         # check if all goal blocks has been filled or none of them has been discovered
-        if len(self.get_candidate_blocks_colour()) > 0 and len(self.get_candidate_blocks_shape) > 0:  
-            for block in self.blocks:
-                for i, g_block in enumerate(self.drop_zone):
-                    if g_block['properties']['shape'] and g_block['properties']['colour']:
-                        if block['visited'] and block['colour'] == g_block['properties']['colour'] \
-                            and block['shape'] == g_block['properties']['shape']:
-                            res.append([i, g_block['location'], block])
+        for block in self.blocks:
+            if block['visited'] != 3:
+                continue
+            for i, g_block in enumerate(self.drop_zone):
+                if g_block['properties']['shape'] is not None and g_block['properties']['colour'] is not None:
+                    if  block['colour'] == g_block['properties']['colour'] \
+                        and block['shape'] == g_block['properties']['shape']:
+                        res.append([i, g_block['location'], block])
         return res 
     
     def get_mismatched_spots(self):
