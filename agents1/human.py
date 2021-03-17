@@ -3,6 +3,7 @@ from matrx.actions import MoveNorth, OpenDoorAction, CloseDoorAction # type: ign
 from matrx.actions.move_actions import MoveEast, MoveSouth, MoveWest # type: ignore 
 import numpy as np # type: ignore 
 import random # type: ignore 
+import json
 from matrx.agents.agent_utils.state import State # type: ignore 
 
 from bw4t.BW4TBrain import BW4TBrain
@@ -29,16 +30,18 @@ class Human(HumanAgentBrain):
             self.agents = state['World']['team_members']
 
         for message in self.received_messages:
-            _handle_message(message)
+            self._handle_message(state, message)
 
         # update state
         new_blocks = self.map.update_map(None, state)
 
         # communicate discovered blocks
         if new_blocks is not None:
-            for block in new_blocks:
-                print("discovered block", block)
-                self._broadcast('blockFound', block)
+            if len(new_blocks) > 0:
+                self._broadcast('BlockFound', new_blocks)
+
+        # for testing
+        self.log("current blocks: " + str(self.map.blocks))
 
         return state # Why need to returning state
 
@@ -46,18 +49,29 @@ class Human(HumanAgentBrain):
     def decide_on_bw4t_action(self, state:State):
         return super().decide_on_bw4t_action(state)
 
-    def _handle_message(self, message):
-        self.map.update_map(message)
-        
+    def _handle_message(self, state, message):
+        if type(message) is dict:
+            self.log("handling message " + str(message))
+            self.map.update_map(message, state)
 
     def _broadcast(self, type, data):
         content = {
                     'agentId': self.agent_id,
                     'type': type,
-                    'data': data
+                    'blocks': data
                     }
 
         # global, so also to itself
         self.send_message(Message(content=content,
                                     from_id=self.agent_id,
                                     to_id=None))
+
+    def is_json(self, string):
+        try:
+            json_object = json.loads(string)
+        except ValueError as e:
+            return False
+        return True
+
+    def log(self, message):
+        print(self.agent_id + ":", message)
