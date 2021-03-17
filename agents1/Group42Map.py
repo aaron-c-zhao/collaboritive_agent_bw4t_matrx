@@ -165,7 +165,7 @@ class Map:
                 'shape': None, 
                 'colour': None
                 },
-            'filled': None  # whether it has been filled with correct block
+            'filled': None  # block which has been dropped on this spot 
             }, drop_zone_objs)) 
         self.drop_zone.reverse()
 
