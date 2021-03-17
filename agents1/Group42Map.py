@@ -10,8 +10,6 @@ class Map:
     Also, support the agent by providing handy utility functions.
     '''
     def __init__(self, state):
-        self._get_drop_zone(state)
-        self._get_rooms(state)
         '''
         block = {
             'id' : (string)unique id of the block. Can be used to distinguish different blocks.
@@ -25,35 +23,10 @@ class Map:
         }
 
         '''
+        self._get_drop_zone(state)
+        self._get_rooms(state)
         self.blocks = [] 
-        
 
-    def update_map(self, message:dict, state):
-        '''
-        update the internal state of the agent. The information could from the agent's
-        own discovery or from messages. Message should be passed as dict.
-        Depending on the type attribute of message, this function react differently.
-        '''
-        # update block info according to agent's own discovery
-        blocks = state.get_with_property({'is_collectable': True})
-        if blocks is not None: 
-            parsed_blocks = []
-
-            
-
-            for block in blocks:
-                parsed_blocks.append(self._parse_block(block))
-                return self._update_block(parsed_blocks)
-            
-        if message is not None:
-            if message['type'] == 'BlockFound':
-                self._update_block(message['blocks'])
-            elif message['type'] == 'PickUp':
-                self._pop_block(message['block'])
-            elif message['type'] == 'Dropped':
-                self._drop_block(message['drop_info'])
-
-        return None
 
     def _is_block_exist(self, target:dict):
         '''
@@ -64,7 +37,18 @@ class Map:
                 return block
         return None
 
-
+    def _update_ghost_block(self, ghost_blocks, is_parsed):
+        if ghost_blocks is not None:
+            ghost_blocks_parsed = ghost_blocks
+            if not is_parsed:
+                ghost_blocks_parsed = self._parse_blocks(ghost_blocks)
+            for ghost_block in ghost_blocks_parsed:
+                for drop_spot in self.drop_zone: 
+                    if ghost_block['location'] == drop_spot['location']:
+                            if ghost_block['colour']:
+                                drop_spot['colour'] = ghost_block['colour'] 
+                            if ghost_block['shape']:
+                                drop_spot['shape'] = ghost_block['shape']
 
 
     def _drop_block(self, drop_info:dict):
@@ -93,33 +77,31 @@ class Map:
         else: 
             return None
 
-    def _get_block_status(self, block):
+    def _get_block_status(self, block, is_parsed):
         '''
-        missing shape = 1
-        missing colour = 2
+        only has shape = 1
+        only has colour = 2
         visited = 3
         '''
         visited = 0
-        if block['visualization']['shape'] or block['visualization']['shape'] is None:
-            visited |= 1 << 1
-        if block['visualization']['colour'] or block['visualization']['colour'] is None:
+        has_shape = False
+        has_color = False
+        if is_parsed:
+            has_shape = block['shape'] is not None
+            has_color = block['colour'] is not None
+        else:
+            has_shape = True if 'shape' in block['visualization'].keys() else False
+            has_color = True if 'colour' in block['visualization'].keys() else False
+        if has_shape: 
             visited |= 1 
+        if has_color:
+            visited |= 1 << 1 
         return visited
 
-    def _get_block_status_parsed(self, block): # todo: improve this if in the mood
-        '''
-        missing shape = 1
-        missing colour = 2
-        visited = 3
-        '''
-        visited = 0
-        if block['shape'] or block['shape'] is None:
-            visited |= 1 << 1
-        if block['colour'] or block['colour'] is None:
-            visited |= 1 
-        return visited
-        
     def _update_block(self, blocks):
+        '''
+        assert (blocks) are parsed
+        '''
         res = []
         for block in blocks:
             to_be_updated = self._is_block_exist(block) # check if the block is already in the collection
@@ -133,40 +115,37 @@ class Map:
                     updated = True
                 to_be_updated['location'] = block['location']
                 to_be_updated['shape'] = block['shape'] if block['shape'] is not None else None
-                to_be_updated['colour'] = block['colour'] if block['colour'] else None
-                to_be_updated['visited'] = self._get_block_status_parsed(block)
-            # if the block discovered is in the drop zone then update the drop_zone
+                to_be_updated['colour'] = block['colour'] if block['colour'] is not None else None
+                to_be_updated['visited'] = self._get_block_status(block, True)
 
-            # if block['is_collectable']: now implemented in update_map, check if thats ok
+            # if the block discovered is in the drop zone then update the drop_zone
             for drop_spot in self.drop_zone:
                 if to_be_updated['location'] == drop_spot['location']:
-                    drop_spot['filled'] = to_be_updated
-
+                    if to_be_updated['is_collectable']: 
+                        drop_spot['filled'] = to_be_updated
+                    else:
+                        self._update_ghost_block([to_be_updated], True)
             self.blocks.append(to_be_updated) # only update the blocks when the block is collectable
             if updated is True:
                 res.append(to_be_updated) # return list of updated blocks
-
-            # TODO reimplement
-            # if block['is_goal_block']: # for ghost block which can not be collected, so only update the drop zone
-            #     for drop_spot in self.drop_zone:
-            #         if to_be_updated['location'] == drop_spot['location']:
-            #             if to_be_updated['colour']:
-            #                 drop_spot['colour'] = to_be_updated['colour']
-            #             if to_be_updated['shape']:
-            #                 drop_spot['shape'] = to_be_updated['shape'] 
-            
         return res
 
-    def _parse_block(self, block):
-        res = {
-            'id': block['obj_id'],
-            'location': block['location'],
-            'room': self._extract_room(block['name']),
-            'shape': block['visualization']['shape'] if block['visualization']['shape'] is not None else None,
-            'colour': block['visualization']['colour'] if block['visualization']['colour'] else None,
-            'visited': self._get_block_status(block)
-        }
-        return res
+    def _parse_blocks(self, blocks):
+        '''
+        Parse the blocks from the agent's own discovery
+        '''
+        parsed_blocks = []
+        for block in blocks:
+            parsed_blocks.append({
+                'id': block['obj_id'],
+                'location': block['location'],
+                'room': self._extract_room(block['name']),
+                'shape': block['visualization']['shape'] if 'shape' in block['visualization'].keys() else None,
+                'colour': block['visualization']['colour'] if 'colour' in block['visualization'].keys() else None,
+                'is_collectable': block['is_collectable'],
+                'visited': self._get_block_status(block, False)
+            })
+        return parsed_blocks
 
     def _is_block_exist(self, target:dict):
         '''
@@ -216,6 +195,37 @@ class Map:
         return a set of wanted shapes, if the goal block has been filled, then its colour is ignored.
         '''
         return set([x['properties']['shape'] for x in self.blocks if x['properties']['shape'] and x['filled'] is not None])
+
+
+
+#################################################################################################
+#                                         public methods                                        #                                            
+#################################################################################################
+
+    def update_map(self, message:dict, state):
+        '''
+        update the internal state of the agent. The information could from the agent's
+        own discovery or from messages. Message should be passed as dict.
+        Depending on the type attribute of message, this function react differently.
+        '''
+        # update block info according to agent's own discovery
+        blocks = state.get_with_property({'is_collectable': True})
+        if blocks is not None: 
+            return self._update_block(self._parse_blocks(blocks))
+
+        # update drop zone information if ghost block found
+        ghost_blocks = state.get_with_property({'is_goal_block': True})
+        self._update_ghost_block(ghost_blocks, False)
+            
+        if message is not None:
+            if message['type'] == 'BlockFound':
+                self._update_block(message['blocks'])
+            elif message['type'] == 'PickUp':
+                self._pop_block(message['block'])
+            elif message['type'] == 'Dropped':
+                self._drop_block(message['drop_info'])
+        return None
+
 
     def get_unvisited_rooms(self):
         '''
