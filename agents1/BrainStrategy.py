@@ -22,6 +22,7 @@ class BrainStrategy:
         self.agent_state: agentstate.AgentState = None
         self.change_state(agentstate.WalkingState(Navigator(agent.agent_id, agent.action_set), StateTracker(agent.agent_id)))
         self.curr_position = None
+        self.holding = []
 
     @staticmethod
     def get_brain_strategy(settings: Dict[str, object], agent: Group42Agent):
@@ -31,7 +32,6 @@ class BrainStrategy:
             return ShapeBlindStrategy(agent)
         if 'slowdown' in settings and settings['slowdown'] > 1:
             return SlowStrategy(agent)
-        print("USING NORMAL STRATEGY")
         return NormalStrategy(agent)
 
     def change_state(self, newState: agentstate.AgentState):
@@ -39,37 +39,49 @@ class BrainStrategy:
         self.agent_state.set_brain(self)
 
     def get_action(self, map: Group42Map, state: State):
-        self.curr_position = state[self.agent.agent_id]['location']
+        pass
 
-    def get_position(self):
-        return self.curr_position
+    def grab_block(self, block):
+        self.holding.append(block)
+        self.holding.sort()
+
+    def drop_block(self, block):
+        for i, b in enumerate(self.holding):
+            if b[1] == block[1]:
+                self.holding.pop(i)
+                return
+
+    def is_holding_blocks(self):
+        return len(self.holding) > 0
+
+    def is_max_capacity(self):
+        return len(self.holding) > 2
+
+    def get_highest_priority_block(self):
+        return self.holding[0]
+
 
 
 class NormalStrategy(BrainStrategy):
     def get_action(self, map: Group42Map, state: State):
-        super().get_action(map, state)
         return self.agent_state.process(map, state)
 
 
 class ColorBlindStrategy(BrainStrategy):
-    def get_action(self, map: Group42Map, state: State):
+    def get_action(self, map_state: Group42Map, state: State):
         self.agent_state.process(map, state)
         # possibleActions = {'grab': GrabObject.__name__,
         #                    'drop': DropObject.__name__,
         #                    'openDoor': OpenDoorAction.__name__,
         #                    'closeDoor': CloseDoorAction.__name__}
-
-        # action_kwargs = {}
-        # action_kwargs['object_id'] = None
-
         pass
 
 
 class ShapeBlindStrategy(BrainStrategy):
-    def get_action(self, map: Group42Map, state: State):
+    def get_action(self, map_state: Group42Map, state: State):
         pass
 
 
 class SlowStrategy(BrainStrategy):
-    def get_action(self, map: Group42Map, state: State):
+    def get_action(self, map_state: Group42Map, state: State):
         pass

@@ -14,7 +14,6 @@ class AgentState:
         self.navigator = navigator
         self.navigator.reset_full()
         self.state_tracker = state_tracker
-        self.goal_blocks = None
 
     def set_brain(self, brain: BrainStrategy):
         self.brain = brain
@@ -26,6 +25,11 @@ class AgentState:
     @staticmethod
     def match_blocks(block1, block2):
         return block1['shape'] == block2['shape'] and block1['colour'] == block2['colour']
+
+    @staticmethod
+    def distance(p1, p2):
+        return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
+
 
 # {
 #     'room_name': room,
@@ -42,7 +46,7 @@ class WalkingState(AgentState):
     def process(self, map: Group42Map, state: State):
         super().process(map, state)
 
-        closest_room_id = map.get_closest_unvisited_room(self.brain.get_position())
+        closest_room_id = map.get_closest_unvisited_room(map.get_agent_location(state))
         if closest_room_id is None:
             self.brain.change_state(WaitingState(self.navigator, self.state_tracker))
             return None, {}
@@ -75,55 +79,61 @@ class ExploringRoomState(AgentState):
                (0, 2)]
 
     def __init__(self, navigator: Navigator, state_tracker: StateTracker, room_id):
-        super(ExploringRoomState, self).__init__(navigator, state_tracker)
+        super().__init__(navigator, state_tracker)
         self.room_id = room_id
         self.unvisited_squares: Set = None
 
-    def process(self, map: Group42Map, state: State):
-        super().process(map, state)
+    def process(self, map_state: Group42Map, state: State):
+        super().process(map_state, state)
 
-        room = map.get_room(self.room_id)
+        room = map_state.get_room(self.room_id)
 
         # if just started exploring the room, then initialise the unvisited squares and go towards one of those squares
         if self.unvisited_squares is None:
             self.unvisited_squares = set(room['indoor_area'])
             self.navigator.add_waypoint(self.unvisited_squares.pop())
 
-        if self.goal_blocks is None:
-            self.goal_blocks = map.get_matching_blocks()
+        # update the unvisited squares
+        self.__update_visited_squares(map_state.get_agent_location(state))
 
-        # if we haven't visited all squares, update the unvisited squares and keep exploring
-        self.__update_visited_squares()
-
-        # TODO find blocks
-        visible_blocks = map.get_visible_blocks()
-        for block in visible_blocks:
-            for goal in self.goal_blocks:
-                if self.match_blocks(block, goal[2]):
-                    self.navigator.reset_full()
-                    self.navigator.add_waypoint(block['location'])
-                    return self.navigator.get_move_action(self.state_tracker), {}
-                    print("found_block")
-                    print(block)
-                    return GrabObject.__name__, {'object_id': block['id']}
-
+        # if we visited all squares in this room, we can go back to walking
         if len(self.unvisited_squares) == 0:
-            self.navigator.reset_full()
-            map.visit_room(self.room_id)
+            self.navigator.reset()
+            map_state.visit_room(self.room_id)
             self.brain.change_state(WalkingState(self.navigator, self.state_tracker))
             return None, {}
 
+        # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
-            self.navigator.reset_full()
+            self.navigator.reset()
             self.navigator.add_waypoint(self.unvisited_squares.pop())
+
+        # check if any of the blocks match the goal blocks
+        matching_blocks = map_state.get_matching_blocks()
+        for block in matching_blocks:
+            # if we're too far away, temporarily set new destination to get closer to the block and pick it up
+            if self.distance(map_state.get_agent_location(state),
+                             block[2]['location']) > 1:  # TODO extract hardcoded distance
+                self.navigator.reset()
+                self.navigator.add_waypoint(block[2]['location'])
+                return self.navigator.get_move_action(self.state_tracker), {}
+            # otherwise grab this block
+            self.navigator.is_done = True
+            self.brain.grab_block(block)
+            map_state._pop_block(block[2])
+            return GrabObject.__name__, {'object_id': block[2]['id']}
+
+        # if full capacity, start delivering
+        # TODO make this smarter by cooperating with other agents
+        if self.brain.is_max_capacity():
+            self.brain.change_state(DeliveringState(self.navigator, self.state_tracker))
 
         return self.navigator.get_move_action(self.state_tracker), {}
 
-    def __update_visited_squares(self):
+    def __update_visited_squares(self, curr_position):
         '''
         TODO: can be optimised
         '''
-        curr_position = self.brain.get_position()
         visible_squares = set()
         for x, y in self.squares:
             visible_squares.add((curr_position[0] + x, curr_position[1] + y))
@@ -131,14 +141,38 @@ class ExploringRoomState(AgentState):
 
 
 class GrabBoxState(AgentState):
-    def process(self, map: Group42Map, state: State, ):
-
+    def process(self, map_state: Group42Map, state: State, ):
         pass
+
 
 class DeliveringState(AgentState):
-    def process(self, map: Group42Map, state: State):
-        pass
+    def __init__(self, navigator: Navigator, state_tracker: StateTracker):
+        super().__init__(navigator, state_tracker)
+        self.delivering_block = None
+
+    def process(self, map_state: Group42Map, state: State):
+        super().process(map, state)
+
+        # if not started to drop a box
+        if self.delivering_block is None:
+            if self.brain.is_holding_blocks():
+                self.navigator.reset()
+                self.delivering_block = self.brain.get_highest_priority_block()
+                self.navigator.add_waypoint(self.delivering_block[1])
+            else:
+                self.brain.change_state(WalkingState(self.navigator, self.state_tracker))
+
+        elif self.navigator.is_done:
+            self.navigator.reset()
+            self.brain.drop_block(self.delivering_block)
+            drop_block = {'location': self.delivering_block[1], 'block': self.delivering_block[2]}
+            map_state._drop_block(drop_block)
+            self.delivering_block = None
+            return DropObject.__name__, {'object_id': drop_block['block']['id']}
+
+        return self.navigator.get_move_action(self.state_tracker), {}
+
 
 class WaitingState(AgentState):
-    def process(self, map: Group42Map, state: State):
+    def process(self, map_state: Group42Map, state: State):
         return None, {}
