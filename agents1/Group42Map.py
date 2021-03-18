@@ -25,7 +25,8 @@ class Map:
         '''
         self._get_drop_zone(state)
         self._get_rooms(state)
-        self.blocks = {} 
+        self.blocks = {}
+        self.visible_blocks = []
 
 
     def _update_ghost_block(self, ghost_blocks, is_parsed):
@@ -192,8 +193,9 @@ class Map:
         '''
         # update block info according to agent's own discovery
         blocks = state.get_with_property({'is_collectable': True})
-        if blocks is not None: 
-            return self._update_block(self._parse_blocks(blocks))
+        if blocks is not None:
+            self.visible_blocks = self._parse_blocks(blocks)
+            return self._update_block(self.visible_blocks)
 
         # update drop zone information if ghost block found
         ghost_blocks = state.get_with_property({'is_goal_block': True})
@@ -221,7 +223,7 @@ class Map:
         return unvisited_rooms
     
 
-    def get_closest_unvisited_room(self, state, loc):
+    def get_closest_unvisited_room(self, loc):
         '''
         @return name of the nearest unvisited room
         '''
