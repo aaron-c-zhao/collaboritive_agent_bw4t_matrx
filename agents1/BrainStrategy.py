@@ -4,7 +4,7 @@ from matrx.agents import Navigator, StateTracker
 from matrx.agents.agent_utils.state import State
 
 import agents1.AgentState as agentstate
-from agents1 import Group42Map
+from agents1 import Group42MapState
 import agents1.Group42Agent as Group42Agent
 
 '''
@@ -38,7 +38,7 @@ class BrainStrategy:
         self.agent_state = newState
         self.agent_state.set_brain(self)
 
-    def get_action(self, map: Group42Map, state: State):
+    def get_action(self, map: Group42MapState, state: State):
         pass
 
     def grab_block(self, block):
@@ -63,12 +63,12 @@ class BrainStrategy:
 
 
 class NormalStrategy(BrainStrategy):
-    def get_action(self, map: Group42Map, state: State):
+    def get_action(self, map: Group42MapState, state: State):
         return self.agent_state.process(map, state)
 
 
 class ColorBlindStrategy(BrainStrategy):
-    def get_action(self, map_state: Group42Map, state: State):
+    def get_action(self, map_state: Group42MapState, state: State):
         self.agent_state.process(map, state)
         # possibleActions = {'grab': GrabObject.__name__,
         #                    'drop': DropObject.__name__,
@@ -78,10 +78,10 @@ class ColorBlindStrategy(BrainStrategy):
 
 
 class ShapeBlindStrategy(BrainStrategy):
-    def get_action(self, map_state: Group42Map, state: State):
+    def get_action(self, map_state: Group42MapState, state: State):
         pass
 
 
 class SlowStrategy(BrainStrategy):
-    def get_action(self, map_state: Group42Map, state: State):
+    def get_action(self, map_state: Group42MapState, state: State):
         pass

@@ -5,7 +5,7 @@ from matrx.agents import Navigator, StateTracker
 from matrx.agents.agent_utils.state import State
 
 import agents1.BrainStrategy as BrainStrategy
-from agents1 import Group42Map
+from agents1 import Group42MapState
 
 
 class AgentState:
@@ -18,7 +18,7 @@ class AgentState:
     def set_brain(self, brain: BrainStrategy):
         self.brain = brain
 
-    def process(self, map: Group42Map, state: State):
+    def process(self, map: Group42MapState, state: State):
         self.state_tracker.update(state)
         # raise NotImplementedError("Please implement this abstract method")
 
@@ -43,7 +43,7 @@ class AgentState:
 # }
 
 class WalkingState(AgentState):
-    def process(self, map: Group42Map, state: State):
+    def process(self, map: Group42MapState, state: State):
         super().process(map, state)
 
         closest_room_id = map.get_closest_unvisited_room(map.get_agent_location(state))
@@ -83,7 +83,7 @@ class ExploringRoomState(AgentState):
         self.room_id = room_id
         self.unvisited_squares: Set = None
 
-    def process(self, map_state: Group42Map, state: State):
+    def process(self, map_state: Group42MapState, state: State):
         super().process(map_state, state)
 
         room = map_state.get_room(self.room_id)
@@ -109,7 +109,7 @@ class ExploringRoomState(AgentState):
             self.navigator.add_waypoint(self.unvisited_squares.pop())
 
         # check if any of the blocks match the goal blocks
-        matching_blocks = map_state.get_matching_blocks()
+        matching_blocks = map_state.get_matching_blocks_within_range(map_state.get_agent_location(state))
         for block in matching_blocks:
             # if we're too far away, temporarily set new destination to get closer to the block and pick it up
             if self.distance(map_state.get_agent_location(state),
@@ -117,10 +117,11 @@ class ExploringRoomState(AgentState):
                 self.navigator.reset()
                 self.navigator.add_waypoint(block[2]['location'])
                 return self.navigator.get_move_action(self.state_tracker), {}
+
             # otherwise grab this block
             self.navigator.is_done = True
             self.brain.grab_block(block)
-            map_state._pop_block(block[2])
+            map_state.pop_block(block[2])
             return GrabObject.__name__, {'object_id': block[2]['id']}
 
         # if full capacity, start delivering
@@ -141,7 +142,7 @@ class ExploringRoomState(AgentState):
 
 
 class GrabBoxState(AgentState):
-    def process(self, map_state: Group42Map, state: State, ):
+    def process(self, map_state: Group42MapState, state: State, ):
         pass
 
 
@@ -150,7 +151,7 @@ class DeliveringState(AgentState):
         super().__init__(navigator, state_tracker)
         self.delivering_block = None
 
-    def process(self, map_state: Group42Map, state: State):
+    def process(self, map_state: Group42MapState, state: State):
         super().process(map, state)
 
         # if not started to drop a box
@@ -174,5 +175,5 @@ class DeliveringState(AgentState):
 
 
 class WaitingState(AgentState):
-    def process(self, map_state: Group42Map, state: State):
+    def process(self, map_state: Group42MapState, state: State):
         return None, {}

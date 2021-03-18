@@ -1,9 +1,7 @@
-from matrx.messages import Message
 import matrx.utils
-import numpy as np
 
 
-class Map:
+class MapState:
     '''
     Useful information extracted from the world, organised
     in a way that is much easier to understand for the agent.
@@ -47,14 +45,8 @@ class Map:
             if drop_spot['location'] == drop_info['location']:
                 drop_spot['filled'] = drop_info['block']
                 return
-        self.blocks[drop_info['block']['id']] = drop_info[
-            'block']  # if the agent drop the block outside of the dropzone, then add the block back to collection
-
-    def _pop_block(self, block: dict):
-        '''
-        Remove a block from interal collection. Note, the block must be a SINGLE block.
-        '''
-        self.blocks.pop(block['id'], None)
+        # if the agent drop the block outside of the dropzone, then add the block back to collection
+        self.blocks[drop_info['block']['id']] = drop_info['block']
 
     def _extract_room(self, room):
         if isinstance(room, str):
@@ -176,7 +168,7 @@ class Map:
                     x['properties']['shape'] is not None and x['filled'] is None])
 
     def _get_dist(self, loc1: tuple, loc2: tuple):
-        return abs(loc1[0] - loc2[0] + loc1[1] - loc2[1])
+        return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
 
     #################################################################################################
     #                                         public methods                                        #
@@ -202,7 +194,7 @@ class Map:
             if message['type'] == 'BlockFound':
                 self._update_block(message['blocks'])
             elif message['type'] == 'PickUp':
-                self._pop_block(message['block'])
+                self.pop_block(message['block'])
             elif message['type'] == 'Dropped':
                 self._drop_block(message['drop_info'])
         return None
@@ -257,7 +249,7 @@ class Map:
                 res.append(block)
         return res
 
-    def get_matching_blocks(self):
+    def get_matching_blocks(self, blocks=None):
         '''
         @return [[x, y, z]]
             x: drop order
@@ -266,8 +258,10 @@ class Map:
             could return empty list
         '''
         res = []
+        if blocks is None:
+            blocks = self.blocks.values()
         # check if all goal blocks has been filled or none of them has been discovered
-        for block in self.blocks.values():
+        for block in blocks:
             if block['visited'] != 3:
                 continue
             for i, g_block in enumerate(self.drop_zone):
@@ -327,5 +321,17 @@ class Map:
                 res.append(block)
         return res
 
-    def get_visible_blocks(self):
-        return self.visible_blocks
+    def pop_block(self, block):
+        '''
+        Remove a block from interal collection. Note, the block must be a SINGLE block.
+        '''
+        if isinstance(block, dict):
+            self.blocks.pop(block['id'], None)
+        if isinstance(block, str):
+            self.blocks.pop(block, None)
+
+    def get_matching_blocks_within_range(self, loc: tuple, rag=2):
+        blocks = self.filter_blocks_within_range(rag, loc)
+        if len(blocks) > 0:
+            return self.get_matching_blocks(blocks)
+        return []

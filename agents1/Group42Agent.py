@@ -9,7 +9,7 @@ from matrx.agents.agent_utils.state import State  # type: ignore
 from matrx.messages import Message
 
 from agents1.BrainStrategy import BrainStrategy
-from agents1.Group42Map import Map
+from agents1.Group42MapState import MapState
 from bw4t.BW4TBrain import BW4TBrain
 
 
@@ -21,17 +21,18 @@ class Group42Agent(BW4TBrain):
     def __init__(self, settings: Dict[str, object]):
         super().__init__(settings)
         self._moves = [MoveNorth.__name__, MoveEast.__name__, MoveSouth.__name__, MoveWest.__name__]
+        self.settings = settings
 
     def initialize(self):
         super().initialize()
-        self.strategy = BrainStrategy.get_brain_strategy(self.DEFAULT_SETTINGS, self)
+        self.strategy = BrainStrategy.get_brain_strategy(self.settings, self)
         self.map = None
         self.agents = None
         self._door_range = 1
 
     def filter_bw4t_observations(self, state) -> State:
         if self.map is None:
-            self.map = Map(state)
+            self.map = MapState(state)
             self.agents = state['World']['team_members']
 
         for message in self.received_messages:
