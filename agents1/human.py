@@ -8,7 +8,7 @@ from matrx.agents.agent_utils.state import State # type: ignore
 
 from bw4t.BW4TBrain import BW4TBrain
 from matrx.agents import HumanAgentBrain # type: ignore
-from agents1.Group42Map import Map
+from agents1.group42MapState import MapState
 
 from matrx.messages import Message
 
@@ -26,7 +26,7 @@ class Human(HumanAgentBrain):
 
     def filter_observations(self, state): 
         if self.map is None:
-            self.map = Map(state)
+            self.map = MapState(state)
             self.agents = state['World']['team_members']
 
         for message in self.received_messages:
@@ -43,14 +43,14 @@ class Human(HumanAgentBrain):
         # for testing
         # self.log("current blocks: " + str(self.map.blocks))
         # self.log("goal blocks:" + str(self.map.drop_zone))
-        # self.log("matching blocks:" + str(self.map.get_matching_blocks()))
+        self.log("matching blocks:" + str(self.map.get_matching_blocks_within_range(self.map.get_agent_location(state))))
         # self.log("self: " + str(self.map.get_agent_location(state, None)))
         # for agent in state.get_agents():
         #     self.log(str(agent['obj_id']) + ": " + str(self.map.get_agent_location(state, agent['obj_id'])))
         # self.log("wanted colors: " + str(self.map._get_goal_colour_set()))
         # self.log("wanted shape: " + str(self.map._get_goal_shape_set()))
         # self.log("rooms: " + str(self.map.rooms))
-        self.log("filter: " + str(self.map.filter_blocks_within_range(2, self.map.get_agent_location(state))))
+        # self.log("filter: " + str(self.map.filter_blocks_within_range(2, self.map.get_agent_location(state))))
         return state # Why need to returning state
 
 
