@@ -313,7 +313,10 @@ class Map:
             return None
 
     def get_room(self, room_id):
-        return self.rooms[room_id]
+        if room_id in self.rooms.keys():
+            return self.rooms[room_id]
+        else:
+            return None
             
     def filter_blocks_within_range(self, rag, loc:tuple):
         '''
