@@ -19,21 +19,21 @@ class Human(HumanAgentBrain):
     '''
     def __init__(self, slowdown:int):
         super().__init__()
-        self.map = None
+        self.map_state = None
         self.agents = None
     
 
 
     def filter_observations(self, state): 
-        if self.map is None:
-            self.map = MapState(state)
+        if self.map_state is None:
+            self.map_state = MapState(state)
             self.agents = state['World']['team_members']
 
         for message in self.received_messages:
             self._handle_message(state, message)
 
         # update state
-        new_blocks = self.map.update_map(None, state)
+        new_blocks = self.map_state.update_map(None, state)
 
         # communicate discovered blocks
         if new_blocks is not None:
@@ -41,16 +41,18 @@ class Human(HumanAgentBrain):
                 self._broadcast('BlockFound', new_blocks)
 
         # for testing
-        # self.log("current blocks: " + str(self.map.blocks))
-        # self.log("goal blocks:" + str(self.map.drop_zone))
-        self.log("matching blocks:" + str(self.map.get_matching_blocks_within_range(self.map.get_agent_location(state))))
-        # self.log("self: " + str(self.map.get_agent_location(state, None)))
+        # self.log("current blocks: " + str(self.map_state.blocks))
+        # self.log("goal blocks:" + str(self.map_state.drop_zone))
+        # self.log("matching blocks:" + str(self.map_state.get_matching_blocks_within_range(self.map.get_agent_location(state))))
+        # self.log("self: " + str(self.map_state.get_agent_location(state, None)))
         # for agent in state.get_agents():
-        #     self.log(str(agent['obj_id']) + ": " + str(self.map.get_agent_location(state, agent['obj_id'])))
-        # self.log("wanted colors: " + str(self.map._get_goal_colour_set()))
-        # self.log("wanted shape: " + str(self.map._get_goal_shape_set()))
-        # self.log("rooms: " + str(self.map.rooms))
-        # self.log("filter: " + str(self.map.filter_blocks_within_range(2, self.map.get_agent_location(state))))
+        #     self.log(str(agent['obj_id']) + ": " + str(self.map_state.get_agent_location(state, agent['obj_id'])))
+        # self.log("wanted colors: " + str(self.map_state._get_goal_colour_set()))
+        # self.log("wanted shape: " + str(self.map_state._get_goal_shape_set()))
+        # self.log("rooms: " + str(self.map_state.rooms))
+        # self.log("filter: " + str(self.map_state.filter_blocks_within_range(2, self.map_state.get_agent_location(state))))
+        self.log("carried blocks: " + str(self.map_state.carried_blocks))
+        # self.log("agents: " + str(list(map(lambda x: {'block': x['is_carrying'], 'agent': x['obj_id']}, state.get_agents()))))
         return state # Why need to returning state
 
 
@@ -60,7 +62,7 @@ class Human(HumanAgentBrain):
     def _handle_message(self, state, message):
         if type(message) is dict:
             self.log("handling message " + str(message))
-            self.map.update_map(message, state)
+            self.map_state.update_map(message, state)
 
     def _broadcast(self, type, data):
         content = {
