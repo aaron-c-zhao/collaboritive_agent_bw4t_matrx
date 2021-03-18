@@ -167,7 +167,7 @@ class DeliveringState(AgentState):
             self.navigator.reset()
             self.brain.drop_block(self.delivering_block)
             drop_block = {'location': self.delivering_block[1], 'block': self.delivering_block[2]}
-            map_state._drop_block(drop_block)
+            map_state.drop_block(drop_block)
             self.delivering_block = None
             return DropObject.__name__, {'object_id': drop_block['block']['id']}
 
