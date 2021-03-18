@@ -332,7 +332,7 @@ class MapState:
         if isinstance(block, dict):
             self.blocks.pop(block['id'], None)
         if isinstance(block, str):
-            self.blocks.pop(block)
+            self.blocks.pop(block, None)
     
     def get_matching_blocks_within_range(self, loc:tuple, rag = 2):
         blocks = self.filter_blocks_within_range(rag, loc)
