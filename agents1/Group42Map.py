@@ -18,24 +18,15 @@ class Map:
             'shape': 0|1|2 shape of the block(could be None)
             'colour': (string) colour of the block(could be None)
             'visited': The block will be marked as visited(3) when both the shape info and the colour
-                info have been discovered. Otherwise, this attribute has value 1 for missing shape info,
-                and 2 for missing colour info.
+                info have been discovered. Otherwise, this attribute has value 1 for having shape info only,
+                and 2 for having colour info only.
         }
 
         '''
         self._get_drop_zone(state)
         self._get_rooms(state)
-        self.blocks = [] 
+        self.blocks = {} 
 
-
-    def _is_block_exist(self, target:dict):
-        '''
-        @return if the block has been found before, then return the saved instance. Otherwise, return None.
-        '''
-        for block in self.blocks:
-            if block['id'] == target['id']:
-                return block
-        return None
 
     def _update_ghost_block(self, ghost_blocks, is_parsed):
         if ghost_blocks is not None:
@@ -56,7 +47,7 @@ class Map:
             if drop_spot['location'] == drop_info['location']:
                 drop_spot['filled'] = drop_info['block']
                 return
-        self.blocks.append(drop_info['block']) # if the agent drop the block outside of the dropzone, then add the block back to collection
+        self.blocks[drop_info['block']['id']] = drop_info['block'] # if the agent drop the block outside of the dropzone, then add the block back to collection
         
         
 
@@ -64,10 +55,8 @@ class Map:
         '''
         Remove a block from interal collection. Note, the block must be a SINGLE block.
         '''
-        for cur in self.blocks:
-            if cur['id'] == block['obj_id']:
-                self.blocks.remove(cur)
-        
+        self.blocks.pop(block['id'], None)
+             
 
         
     def _extract_room(self, room):
@@ -104,13 +93,12 @@ class Map:
         '''
         res = []
         for block in blocks:
-            to_be_updated = self._is_block_exist(block) # check if the block is already in the collection
+            to_be_updated = self.blocks.pop(block['id'], None) # check if the block is already in the collection
             updated = False
             if to_be_updated is None: # add new entry into the collection
                 to_be_updated = block
                 updated = True
             else: # update shape, colour and status of the block if the block is in the collection
-                self.blocks.remove(to_be_updated)
                 if to_be_updated['location'] != block['location'] or to_be_updated['shape'] != block['shape'] or to_be_updated['colour'] != block['colour']:
                     updated = True
                 to_be_updated['location'] = block['location']
@@ -125,7 +113,7 @@ class Map:
                         drop_spot['filled'] = to_be_updated
                     else:
                         self._update_ghost_block([to_be_updated], True)
-            self.blocks.append(to_be_updated) # only update the blocks when the block is collectable
+            self.blocks[block['id']] = to_be_updated # only update the blocks when the block is collectable
             if updated is True:
                 res.append(to_be_updated) # return list of updated blocks
         return res
@@ -147,15 +135,6 @@ class Map:
             })
         return parsed_blocks
 
-    def _is_block_exist(self, target:dict):
-        '''
-        @return if the block has been found before, then return the saved instance. Otherwise, return None.
-        '''
-        for block in self.blocks:
-            if block['id'] == target['id']:
-                return block
-        return None
-        
 
     def _get_drop_zone(self, state):
         drop_zone_objs = state.get_with_property({'is_drop_zone': True})
@@ -171,32 +150,35 @@ class Map:
 
 
     def _get_rooms(self, state):
-        self.rooms = []
+        self.rooms = {} 
         room_names = state.get_all_room_names()
         for room in room_names:
-            self.rooms.append({
-                'room_name': room,
+            self.rooms[room] = {
+                'room_id': room,
                 'indoor_area': list(map(lambda x: x['location'], state.get_room_objects(room))),
                 'doors': list(map(lambda x: {
                     'location': x['location'],  
-                    'status': x['is_open']  # whether the door is open, if not, then the agent should first navi to the front of the door
+                    'status': x['is_open'],  # whether the door is open, if not, then the agent should first navi to the front of the door
+                    'door_id': x['obj_id']
                     }, state.get_room_doors(room))),
                 'visited': False
-            })
+            }
+
 
     def _get_goal_colour_set(self):
         '''
         return a set of wanted colours. if the goal block has been filled, then its colour is ignored.
         '''
-        return set([x['properties']['colour'] for x in self.blocks if x['properties']['colour'] is not None and x['filled'] is None])
+        return set([x['properties']['colour'] for x in self.drop_zone if x['properties']['colour'] is not None and x['filled'] is None])
 
     def _get_goal_shape_set(self):
         '''
         return a set of wanted shapes, if the goal block has been filled, then its colour is ignored.
         '''
-        return set([x['properties']['shape'] for x in self.blocks if x['properties']['shape'] is not None and x['filled'] is None])
+        return set([x['properties']['shape'] for x in self.drop_zone if x['properties']['shape'] is not None and x['filled'] is None])
 
-
+    def _get_dist(self, loc1:tuple, loc2:tuple):
+        return abs(loc1[0] - loc2[0] + loc1[1] - loc2[1])
 
 #################################################################################################
 #                                         public methods                                        #                                            
@@ -232,7 +214,7 @@ class Map:
         @return list of unvisited rooms
         '''
         unvisited_rooms = []
-        for room in self.rooms:
+        for room in self.rooms.values():
             if room['visited']:
                 continue
             unvisited_rooms.append(room)
@@ -249,7 +231,7 @@ class Map:
             if room['visited']:
                 continue
             for door in room['doors']:
-                dist.append([room['room_name'], matrx.utils.get_distance(loc, door['location'])])
+                dist.append([room['room_id'], matrx.utils.get_distance(loc, door['location'])])
         if len(dist) == 0:
             return None
         return min(dist, key = lambda x: x[1])[0]
@@ -261,7 +243,7 @@ class Map:
             the colour of these blocks. RESULT COUBLE BE EMPTY.
         '''
         res = []
-        for block in self.blocks:
+        for block in self.blocks.values():
             if block['visited'] == 1 and block['colour'] in self._get_goal_colour_set():
                 res.append(block)
         return res
@@ -274,7 +256,7 @@ class Map:
             the shape of these blocks. RESULT COULD BE EMPTY.
         '''
         res = []
-        for block in self.blocks:
+        for block in self.blocks.values():
             if block['visited'] == 2 and block['shape'] in self._get_goal_shape_set():
                 res.append(block)
         return res
@@ -289,7 +271,7 @@ class Map:
         '''
         res = []
         # check if all goal blocks has been filled or none of them has been discovered
-        for block in self.blocks:
+        for block in self.blocks.values():
             if block['visited'] != 3:
                 continue
             for i, g_block in enumerate(self.drop_zone):
@@ -310,10 +292,43 @@ class Map:
                 res.append(drop_spot)
         return res
 
-    def visit_room(self, room_name):
+    def visit_room(self, room_id):
         '''
         update the visiting status of a room. Should be called by the agent when a room has been traversed.
         '''
-        for room in self.rooms:
-            if room['name'] == room_name:
-                room['visited'] = True
+        self.rooms[room_id]['visited'] = True
+
+
+    def get_agent_location(self, state, agent_id = None):
+        '''
+        @return (x, y) the location of agent with id:agent_id(default to None, return own location)
+        '''
+        if agent_id == None:
+            return state.get_self()['location']
+        else:
+            agents = state.get_agents()
+            for agent in agents:
+                if agent_id == agent['obj_id']:
+                    return agent['location']
+            return None
+
+    def get_room(self, room_id):
+        if room_id in self.rooms.keys():
+            return self.rooms[room_id]
+        else:
+            return None
+            
+    def filter_blocks_within_range(self, rag, loc:tuple):
+        '''
+        @param rag the range wrt which the blocks to be filtered
+        @param loc the location of the center
+        @return list of blocks if any blocks exists within that range or []
+        '''
+        res = []
+        if rag <= 0:
+            return res
+        for block in self.blocks.values():
+            if self._get_dist(loc, block['location']) <= rag:
+                res.append(block)
+        return res
+        
