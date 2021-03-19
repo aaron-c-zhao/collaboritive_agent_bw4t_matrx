@@ -20,7 +20,7 @@ class AgentState:
 
     def process(self, map: Group42MapState, state: State):
         self.state_tracker.update(state)
-        # raise NotImplementedError("Please implement this abstract method")
+        # raise NotImplementedError("statePlease implement this abstract method")
 
     @staticmethod
     def match_blocks(block1, block2):

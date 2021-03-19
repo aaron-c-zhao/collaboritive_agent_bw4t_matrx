@@ -1,5 +1,5 @@
 import matrx.utils
-
+from matrx.messages import Message
 
 class MapState:
     '''
@@ -26,6 +26,12 @@ class MapState:
         self._get_rooms(state)
         self.blocks = {}
         self.carried_blocks = {}
+        self.messageQueue = []
+        self.agent_id = state.get_self()['obj_id']
+        self.blocks_carried_by_agents = {}
+
+        for agentId in state['World']['team_members']:
+            self.blocks_carried_by_agents[agentId] = []
 
     def _update_ghost_block(self, ghost_blocks, is_parsed):
         if ghost_blocks is not None:
@@ -70,7 +76,7 @@ class MapState:
             visited |= 1 << 1
         return visited
 
-    def _update_block(self, blocks):
+    def _update_block(self, blocks, queue=True):
         '''
         assert (blocks) are parsed
         '''
@@ -100,7 +106,39 @@ class MapState:
             self.blocks[block['id']] = to_be_updated  # only update the blocks when the block is collectable
             if updated is True:
                 res.append(to_be_updated)  # return list of updated blocks
-        return res
+
+        # queue a message with all updated blocks
+        if len(res) > 0 and queue:        
+            self._queue_message('BlockFound', res)
+
+    def _queue_message(self, type, data):
+        content = {}
+
+        if type == 'BlockFound':
+            content = {
+                        'agentId': self.agent_id,
+                        'type': type,
+                        'blocks': data
+                        }
+        elif type == 'PickUp':
+            content = {
+                        'agentId': self.agent_id,
+                        'type': type,
+                        'block': data
+                        }
+        elif type == 'Dropped':
+            content = {
+                        'agentId': self.agent_id,
+                        'type': type,
+                        'drop_info': data
+                        }
+
+        # add nessage to queue
+        self.messageQueue.append((Message(content=content,
+                                    from_id=self.agent_id,
+                                    to_id=None)))
+
+    
 
     def _parse_blocks(self, blocks):
         '''
@@ -179,7 +217,7 @@ class MapState:
         blocks = state.get_with_property({'is_collectable': True})
         if blocks is not None:
             self.visible_blocks = self._parse_blocks(blocks)
-            return self._update_block(self.visible_blocks)
+            self._update_block(self.visible_blocks)
 
         # update drop zone information if ghost block found
         ghost_blocks = state.get_with_property({'is_goal_block': True})
@@ -187,12 +225,29 @@ class MapState:
 
         if message is not None:
             if message['type'] == 'BlockFound':
-                self._update_block(message['blocks'])
+                self._update_block(message['blocks'], queue=False)
             elif message['type'] == 'PickUp':
-                self.pop_block(message['block'])
+                self.pop_block(message['block'], queue=False)
+
+                # not sure if this is the way to do this
+                carried_blocks = self.blocks_carried_by_agents[message['agentId']]
+                carried_blocks.append(message['block'])
+                self.blocks_carried_by_agents[message['agentId']] = carried_blocks
+                # print("carried blocks after pickup:", self.blocks_carried_by_agents)
+
             elif message['type'] == 'Dropped':
-                self.drop_block(message['drop_info'])
-        return None
+                self.drop_block(message['drop_info'], queue=False)
+
+                carried_blocks = self.blocks_carried_by_agents[message['agentId']]
+                carried_blocks.remove(message['drop_info']['block'])
+                self.blocks_carried_by_agents[message['agentId']] = carried_blocks
+                # print("carried blocks after drop:", self.blocks_carried_by_agents)
+
+    def get_message_queue(self):
+        res = self.messageQueue.copy()
+        self.messageQueue.clear()
+        
+        return res
 
     def get_unvisited_rooms(self):
         '''
@@ -322,17 +377,23 @@ class MapState:
                 res.append(block)
         return res
 
-    def pop_block(self, block):
+    def pop_block(self, block, queue=True):
         '''
         Remove a block from interal collection. Note, the block must be a SINGLE block.
         '''
         if isinstance(block, dict):
+            if queue:
+                self._queue_message('PickUp', block)
             self.blocks.pop(block['id'], None)
             self.carried_blocks[block['id']] = None
             return 
         if isinstance(block, str):
+            if queue:
+                self._queue_message('PickUp', self.blocks.get(block))
             self.blocks.pop(block, None)
             self.carried_blocks[block] = None
+
+
     
     def get_matching_blocks_within_range(self, loc:tuple, rag = 2):
         blocks = self.filter_blocks_within_range(rag, loc)
@@ -341,8 +402,10 @@ class MapState:
         return []
     
     
-    def drop_block(self, drop_info:dict):
+    def drop_block(self, drop_info:dict, queue=True):
         block_id = self.carried_blocks.pop(drop_info['block']['id'], None)
+        if queue:
+            self._queue_message('Dropped', drop_info)
         if block_id is not None: 
             for drop_spot in self.drop_zone:
                 if drop_spot['location'] == drop_info['location']:

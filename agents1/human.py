@@ -29,16 +29,18 @@ class Human(HumanAgentBrain):
             self.map_state = MapState(state)
             self.agents = state['World']['team_members']
 
+
+        # Updating the map with visible blocks
+        self.map_state.update_map(None, state)
+
+        # handle messages
         for message in self.received_messages:
             self._handle_message(state, message)
 
-        # update state
-        new_blocks = self.map_state.update_map(None, state)
+        
 
-        # communicate discovered blocks
-        if new_blocks is not None:
-            if len(new_blocks) > 0:
-                self._broadcast('BlockFound', new_blocks)
+        
+
 
         # for testing
         # self.log("current blocks: " + str(self.map_state.blocks))
@@ -51,37 +53,33 @@ class Human(HumanAgentBrain):
         # self.log("wanted shape: " + str(self.map_state._get_goal_shape_set()))
         # self.log("rooms: " + str(self.map_state.rooms))
         # self.log("filter: " + str(self.map_state.filter_blocks_within_range(2, self.map_state.get_agent_location(state))))
-        self.log("carried blocks: " + str(self.map_state.carried_blocks))
+        # self.log("carried blocks: " + str(self.map_state.carried_blocks))
         # self.log("agents: " + str(list(map(lambda x: {'block': x['is_carrying'], 'agent': x['obj_id']}, state.get_agents()))))
+        
+        # finally, send all messages stored in the mapstate Queue
+        # SHOULD BE IN DECIDE_ON_BW4T_ACTION BUT HERE FOR DEBUGGING
+        for message in self.map_state.get_message_queue():
+            self.send_message(message)
+        
+        
+        
         return state # Why need to returning state
 
 
     def decide_on_bw4t_action(self, state:State):
+
+
+        
+
         return super().decide_on_bw4t_action(state)
 
     def _handle_message(self, state, message):
         if type(message) is dict:
-            self.log("handling message " + str(message))
+            # self.log("handling message " + str(message))
             self.map_state.update_map(message, state)
 
-    def _broadcast(self, type, data):
-        content = {
-                    'agentId': self.agent_id,
-                    'type': type,
-                    'blocks': data
-                    }
-
-        # global, so also to itself
-        self.send_message(Message(content=content,
-                                    from_id=self.agent_id,
-                                    to_id=None))
-
-    def is_json(self, string):
-        try:
-            json_object = json.loads(string)
-        except ValueError as e:
-            return False
-        return True
+    def _broadcast(self, message):
+        self.send_message(message)
 
     def log(self, message):
         print(self.agent_id + ":", message)
