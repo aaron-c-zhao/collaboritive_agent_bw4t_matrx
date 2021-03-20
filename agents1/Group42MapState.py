@@ -3,6 +3,7 @@ import operator
 import matrx.utils
 from matrx.messages import Message
 
+
 class MapState:
     '''
     Useful information extracted from the world, organised
@@ -28,7 +29,7 @@ class MapState:
         self._get_rooms(state)
         self.blocks = {}
         self.carried_blocks = {}
-        self.messageQueue = []
+        self.message_queue = []
         self.agent_id = state.get_self()['obj_id']
         self.blocks_carried_by_agents = {}
         self.agent_locations = {}
@@ -109,7 +110,7 @@ class MapState:
                 res.append(to_be_updated)  # return list of updated blocks
 
         # queue a message with all updated blocks
-        if len(res) > 0 and queue:        
+        if len(res) > 0 and queue:
             self._queue_message('BlockFound', res)
 
     def _queue_message(self, type, data):
@@ -117,27 +118,27 @@ class MapState:
 
         if type == 'BlockFound':
             content = {
-                        'agentId': self.agent_id,
-                        'type': type,
-                        'blocks': data
-                        }
+                'agentId': self.agent_id,
+                'type': type,
+                'blocks': data
+            }
         elif type == 'PickUp':
             content = {
-                        'agentId': self.agent_id,
-                        'type': type,
-                        'block': data
-                        }
+                'agentId': self.agent_id,
+                'type': type,
+                'block': data
+            }
         elif type == 'Dropped':
             content = {
-                        'agentId': self.agent_id,
-                        'type': type,
-                        'drop_info': data
-                        }
+                'agentId': self.agent_id,
+                'type': type,
+                'drop_info': data
+            }
 
         # add nessage to queue
-        self.messageQueue.append((Message(content=content,
-                                    from_id=self.agent_id,
-                                    to_id=None)))
+        self.message_queue.append((Message(content=content,
+                                           from_id=self.agent_id,
+                                           to_id=None)))
 
     def _parse_blocks(self, blocks):
         '''
@@ -166,6 +167,26 @@ class MapState:
             },
             'filled': None  # block which has been dropped on this spot 
         }, drop_zone_objs))
+
+        # self.goal_blocks = list(map(lambda d: {
+        #     'goal_location': d['location'],
+        #     'properties': {
+        #         'shape': None,
+        #         'colour': None
+        #     },
+        #     'filled': None,
+        #     'found': False# block which has been dropped on this spot
+        # }, drop_zone_objs.sort(key = lambda x : x)))\
+
+        # [
+        # {'priority': 1,
+        # 'goal_location': (x, y),
+        # 'found': False
+        # 'Target_block': {block_info...}
+        # 'Found_blocks': [sort on distance to goal]
+        # 'Plausible_blocks': ['color': {}, 'shape': {}]
+        # }
+        # ]
         self.drop_zone.reverse()
 
     def _get_rooms(self, state):
@@ -248,9 +269,9 @@ class MapState:
                 # print("carried blocks after drop:", self.blocks_carried_by_agents)
 
     def get_message_queue(self):
-        res = self.messageQueue.copy()
-        self.messageQueue.clear()
-        
+        res = self.message_queue.copy()
+        self.message_queue.clear()
+
         return res
 
     def get_unvisited_rooms(self):
@@ -274,7 +295,8 @@ class MapState:
             # if room['visited']:
             #     continue
             for door in room['doors']:
-                dist.append([room['room_id'], (abs(loc[1]-door['location'][1]), matrx.utils.get_distance(loc, door['location']))])
+                dist.append([room['room_id'],
+                             (abs(loc[1] - door['location'][1]), matrx.utils.get_distance(loc, door['location']))])
         if len(dist) == 0:
             return None
         return min(dist, key=operator.itemgetter(1))[0]
@@ -303,7 +325,7 @@ class MapState:
                 res.append(block)
         return res
 
-    def get_matching_blocks(self, blocks=None):
+    def get_matching_blocks(self, color=True, shape=True):
         '''
         @return [{x, y, z}]
             x: drop order
@@ -313,11 +335,12 @@ class MapState:
             could return empty list
         '''
         res = []
-        if blocks is None:
-            blocks = self.blocks.values()
+        # 1 for only color, 2 for only shape, 3 for both
+        filtering_criteria = 0 | (color << 1) | (shape << 0)
+        blocks = self.blocks.values()
         # check if all goal blocks has been filled or none of them has been discovered
         for block in blocks:
-            if block['visited'] != 3:
+            if block['visited'] != filtering_criteria:
                 continue
             for i, g_block in enumerate(self.drop_zone):
                 if g_block['properties']['shape'] is not None and g_block['properties']['colour'] is not None:
@@ -330,6 +353,19 @@ class MapState:
                             True if block['id'] in self.carried_blocks.keys() else False
                             # whether the block has been picked up
                         ])
+                # is_matching = (color and g_block['properties']['colour'] is not None and
+                #                block['colour'] == g_block['properties']['colour']) | \
+                #               (shape and g_block['properties']['shape'] is not None and
+                #                block['shape'] == g_block['properties']['shape'])
+                #
+                # if is_matching:
+                #     res.append([
+                #         i,
+                #         g_block['location'],
+                #         block,
+                #         True if block['id'] in self.carried_blocks.keys() else False
+                #         # whether the block has been picked up
+                #     ])
         return res
 
     def get_mismatched_spots(self):
@@ -364,17 +400,19 @@ class MapState:
         else:
             return None
 
-    def filter_blocks_within_range(self, rag, loc: tuple):
+    def filter_blocks_within_range(self, loc: tuple, blocks=None, rag=2):
         '''
         @param rag the range wrt which the blocks to be filtered
         @param loc the location of the center
         @return list of blocks if any blocks exists within that range or []
         '''
+        if blocks is None:
+            blocks = self.blocks
         res = []
         if rag <= 0:
             return res
-        for block in self.blocks.values():
-            if self._get_dist(loc, block['location']) <= rag:
+        for block in blocks:
+            if self._get_dist(loc, block[2]['location']) <= rag:
                 res.append(block)
         return res
 
@@ -394,19 +432,26 @@ class MapState:
             self.blocks.pop(block, None)
             self.carried_blocks[block] = None
 
-    def get_matching_blocks_within_range(self, loc: tuple, rag=2):
-        blocks = self.filter_blocks_within_range(rag, loc)
-        if len(blocks) > 0:
-            return self.get_matching_blocks(blocks)
-        return []
-    
-    def drop_block(self, drop_info:dict, queue=True):
+    # def get_matching_blocks_within_range(self, loc: tuple, rag=2):
+    #     blocks = self.filter_blocks_within_range(rag, loc)
+    #     if len(blocks) > 0:
+    #         return self.get_matching_blocks(blocks)
+    #     return []
+
+    # def get_matching_blocks_within_range(self, loc: tuple, rag=2, blocks=None):
+    #     blocks = self.filter_blocks_within_range(rag, loc, blocks)
+    #     if len(blocks) > 0:
+    #         return self.get_matching_blocks(blocks=blocks)
+    #     return []
+
+    def drop_block(self, drop_info: dict, queue=True):
         block_id = self.carried_blocks.pop(drop_info['block']['id'], None)
         if queue:
             self._queue_message('Dropped', drop_info)
-        if block_id is not None: 
+        if block_id is not None:
             for drop_spot in self.drop_zone:
                 if drop_spot['location'] == drop_info['location']:
                     drop_spot['filled'] = drop_info['block']
                     return
-            self.blocks[block_id] = drop_info['block']  # if the agent drop the block outside of the dropzone, then add the block back to collection
+            self.blocks[block_id] = drop_info[
+                'block']  # if the agent drop the block outside of the dropzone, then add the block back to collection

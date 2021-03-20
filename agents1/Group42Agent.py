@@ -32,9 +32,10 @@ class Group42Agent(BW4TBrain):
         # self.map_state = None
         # self.agents = None
         self._door_range = 1
-
         # self.agent_state: AgentState = None
-        self.change_state(agst.WalkingState(Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
+        # self.change_state(
+        self.change_state(self.strategy.initial_state(Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
+        #     agst.WalkingState(self.strategy, Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
         # self.holding = []
 
     def change_state(self, newState: agst.AgentState):

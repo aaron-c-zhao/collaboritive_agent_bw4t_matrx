@@ -3,7 +3,7 @@ from typing import Dict
 from matrx.agents import Navigator, StateTracker
 from matrx.agents.agent_utils.state import State
 
-import agents1.AgentState as AgentState
+import agents1.AgentState as agst
 import agents1.Group42Agent as Group42Agent
 from agents1.Group42MapState import MapState
 
@@ -17,8 +17,9 @@ None (do nothing)
 
 
 class BrainStrategy:
-    def __init__(self, agent: Group42Agent):
+    def __init__(self, agent: Group42Agent, slowness):
         self.agent: Group42Agent = agent
+        self.slowness = slowness
 
     @staticmethod
     def get_brain_strategy(settings: Dict[str, object], agent: Group42Agent):
@@ -27,11 +28,11 @@ class BrainStrategy:
         shapeblind = settings['shapeblind'] if 'shapeblind' in settings else False
         if colorblind:
             if shapeblind:
-                return TotallyBlindStrategy(agent)
-            return ColorBlindStrategy(agent)
+                return TotallyBlindStrategy(agent, slowdown)
+            return ColorBlindStrategy(agent, slowdown)
         if shapeblind:
-            return ShapeBlindStrategy(agent)
-        return NormalStrategy(agent)
+            return ShapeBlindStrategy(agent, slowdown)
+        return NormalStrategy(agent, slowdown)
 
     def get_action(self, map_state: MapState, state: State):
         pass
@@ -39,9 +40,16 @@ class BrainStrategy:
     def block_found(self, map_state: MapState):
         pass
 
+    def initial_state(self, navigator: Navigator, state_tracker: StateTracker):
+        '''
+        State machine entry point. Walking state by default, but can be overwritten
+        '''
+        return agst.WalkingState(self, navigator, state_tracker)
+
     def check_update(self, map_state: MapState):
-        # check the block that haven't been found
-        #
+        # match_blocks(b1, b2)
+        for agent in map_state.blocks_carried_by_agents:
+            None
         pass
 
 
@@ -50,7 +58,8 @@ class NormalStrategy(BrainStrategy):
         pass
 
     def block_found(self, map_state: MapState):
-        map_state.get_matching_blocks_within_range(map_state.get_agent_location())
+        return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
+                                                    blocks=map_state.get_matching_blocks(color=True, shape=True))
 
 
 class ColorBlindStrategy(BrainStrategy):
@@ -62,7 +71,8 @@ class ColorBlindStrategy(BrainStrategy):
         #                    'closeDoor': CloseDoorAction.__name__}
 
     def block_found(self, map_state: MapState):
-        map_state.get_matching_blocks_within_range(map_state.get_agent_location())
+        return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
+                                                    blocks=map_state.get_matching_blocks(color=False, shape=True))
 
 
 class ShapeBlindStrategy(BrainStrategy):
@@ -70,7 +80,8 @@ class ShapeBlindStrategy(BrainStrategy):
         pass
 
     def block_found(self, map_state: MapState):
-        map_state.get_candidate_blocks_colour()
+        return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
+                                                    blocks=map_state.get_matching_blocks(color=True, shape=False))
 
 
 class SlowStrategy(BrainStrategy):
@@ -81,3 +92,10 @@ class SlowStrategy(BrainStrategy):
 class TotallyBlindStrategy(BrainStrategy):
     def get_action(self, map_state: MapState, state: State):
         pass
+
+    def block_found(self, map_state: MapState):
+        pass
+
+    def initial_state(self, navigator: Navigator, state_tracker: StateTracker):
+        # totally blind agent awaits for updates in the world info. It could start off by following a random agent.
+        return agst.WaitingState(self, navigator, state_tracker)
