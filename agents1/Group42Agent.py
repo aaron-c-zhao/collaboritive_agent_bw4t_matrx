@@ -35,16 +35,13 @@ class Group42Agent(BW4TBrain):
             self.map = MapState(state)
             self.agents = state['World']['team_members']
 
+        # Updating the map with visible blocks
+        self.map.update_map(None, state)
+
+        # handle messages
         for message in self.received_messages:
             self._handle_message(state, message)
 
-        # update state
-        new_blocks = self.map.update_map(None, state)
-
-        # communicate discovered blocks
-        if new_blocks is not None:
-            if len(new_blocks) > 0:
-                self._broadcast('BlockFound', new_blocks)
 
         # for testing
         # self.log("current blocks: " + str(self.map.blocks))
@@ -53,7 +50,16 @@ class Group42Agent(BW4TBrain):
         return state
 
     def decide_on_bw4t_action(self, state: State):
-        return self.strategy.get_action(self.map, state)
+
+        self.log("carrying: " + str(self.map.carried_blocks))
+
+        action = self.strategy.get_action(self.map, state)
+
+        # finally, send all messages stored in the mapstate Queue
+        for message in self.map.get_message_queue():
+            self.send_message(message)
+
+        return action
 
     # def _nearbyDoors(self, state: State):
     #     # copy from humanagent
