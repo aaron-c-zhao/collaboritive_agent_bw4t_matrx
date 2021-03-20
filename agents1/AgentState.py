@@ -1,5 +1,6 @@
 from typing import Set
 
+from matrx import utils
 from matrx.actions import *
 from matrx.agents import Navigator, StateTracker
 from matrx.agents.agent_utils.state import State
@@ -22,11 +23,8 @@ class AgentState:
 
     def process(self, map_state: Group42MapState, state: State):
         self.state_tracker.update(state)
+        self.strategy.check_update(map_state)
         # raise NotImplementedError("statePlease implement this abstract method")
-
-    @staticmethod
-    def distance(p1, p2):
-        return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
 
 
 # {
@@ -60,7 +58,8 @@ class WalkingState(AgentState):
 
         if self.navigator.is_done:
             room = map_state.get_room(closest_room_id)
-            self.agent.change_state(ExploringRoomState(self.strategy, self.navigator, self.state_tracker, closest_room_id))
+            self.agent.change_state(
+                ExploringRoomState(self.strategy, self.navigator, self.state_tracker, closest_room_id))
 
             # open the door if it's not open
             if not room['doors'][0]['status']:
@@ -80,9 +79,16 @@ class ExploringRoomState(AgentState):
         super().__init__(strategy, navigator, state_tracker)
         self.room_id = room_id
         self.unvisited_squares: Set = None
+        self.pending_block = None
 
     def process(self, map_state: Group42MapState, state: State):
         super().process(map_state, state)
+        if self.pending_block is not None:
+            res = state.get_with_property({'carried_by': map_state.agent_id})
+            if res is not None and self.pending_block[2]['id'] in [x['obj_id'] for x in res['is_carrying']]:
+                self.agent.grab_block(self.pending_block)
+                map_state.pop_block(self.pending_block[2])
+            self.pending_block = None
 
         room = map_state.get_room(self.room_id)
 
@@ -90,6 +96,13 @@ class ExploringRoomState(AgentState):
         if self.unvisited_squares is None:
             self.unvisited_squares = set(room['indoor_area'])
             self.navigator.add_waypoint(self.unvisited_squares.pop())
+
+        # if we visited all squares in this room, we can go back to walking
+        if len(self.unvisited_squares) == 0:
+            self.navigator.reset_full()
+            map_state.visit_room(self.room_id)
+            self.agent.change_state(WalkingState(self.strategy, self.navigator, self.state_tracker))
+            return None, {}
 
         # update the unvisited squares
         self.__update_visited_squares(map_state.get_agent_location())
@@ -99,34 +112,27 @@ class ExploringRoomState(AgentState):
         if self.agent.is_max_capacity():
             self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
 
-        # if we visited all squares in this room, we can go back to walking
-        if len(self.unvisited_squares) == 0:
-            self.navigator.reset_full()
-            map_state.visit_room(self.room_id)
-            self.agent.change_state(WalkingState(self.strategy, self.navigator, self.state_tracker))
-            return None, {}
 
         # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
             self.navigator.reset_full()
             self.navigator.add_waypoint(self.unvisited_squares.pop())
 
-        # check if any of the blocks match the goal blocks
-        # matching_blocks = map_state.get_matching_blocks_within_range(map_state.get_agent_location())
-        matching_blocks = self.strategy.block_found(map_state)
-        for block in filter(lambda b: not b[3], matching_blocks):
-            # if we're too far away, temporarily set new destination to get closer to the block and pick it up
-            # TODO extract hardcoded distance
-            if self.distance(map_state.get_agent_location(), block[2]['location']) > 1:
-                self.navigator.reset_full()
-                self.navigator.add_waypoint(block[2]['location'])
-                return self.navigator.get_move_action(self.state_tracker), {}
+            # check if any of the blocks match the goal blocks
+            # matching_blocks = map_state.get_matching_blocks_within_range(map_state.get_agent_location())
+            matching_blocks = self.strategy.block_found(map_state)
+            for block in filter(lambda b: not b[3], matching_blocks):
+                # if we're too far away, temporarily set new destination to get closer to the block and pick it up
+                # TODO extract hardcoded distance
+                if utils.get_distance(map_state.get_agent_location(), block[2]['location']) > 1:
+                    self.navigator.reset_full()
+                    self.navigator.add_waypoint(block[2]['location'])
+                    return self.navigator.get_move_action(self.state_tracker), {}
 
-            # otherwise grab this block
-            self.navigator.is_done = True
-            self.agent.grab_block(block)
-            map_state.pop_block(block[2])
-            return GrabObject.__name__, {'object_id': block[2]['id']}
+                # otherwise grab this block
+                self.navigator.is_done = True
+                self.pending_block = block
+                return GrabObject.__name__, {'object_id': block[2]['id']}
 
         return self.navigator.get_move_action(self.state_tracker), {}
 
@@ -167,10 +173,13 @@ class DeliveringState(AgentState):
 
         return self.navigator.get_move_action(self.state_tracker), {}
 
+
 # TODO dropoff(when invetory full),
 #  rid_unnecessary_blocks(when other people found goal blocks),
 #  check_goal_blocks(when next to goal state and need to check other people's half known blocks)
 
 class WaitingState(AgentState):
     def process(self, map_state: Group42MapState, state: State):
+        super().process(map_state, state)
+
         return None, {}

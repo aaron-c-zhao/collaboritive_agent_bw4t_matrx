@@ -1,5 +1,4 @@
 from agents1.Group42Agent import Group42Agent
-from agents1.human import Human
 from bw4t.BW4TWorld import BW4TWorld
 from bw4t.statistics import Statistics
 
@@ -14,8 +13,13 @@ if __name__ == "__main__":
         # {'name':'agent2', 'botclass':RandomAgent, 'settings':{'slowdown':1, 'shapeblind':True}},
         # {'name': 'human1', 'botclass': Human, 'settings': {'slowdown': 1}},
         # {'name': 'human2', 'botclass': Human, 'settings': {'slowdown': 1, 'colorblind': True, 'shapeblind': True}},
-        {'name': 'group42agent', 'botclass': Group42Agent, 'settings': {'slowdown': 1}},
-        # {'name': 'group42agent', 'botclass': Group42Agent, 'settings': {'slowdown': 1, 'colorblind': False, 'shapeblind': True}}
+        {'name': 'group42agent-normal', 'botclass': Group42Agent, 'settings': {'slowdown': 1}},
+        {'name': 'group42agent-color_blind', 'botclass': Group42Agent,
+         'settings': {'slowdown': 1, 'colorblind': True, 'shapeblind': False}}
+        # {'name': 'group42agent-shape_blind', 'botclass': Group42Agent,
+        #  'settings': {'slowdown': 1, 'colorblind': False, 'shapeblind': True}},
+        # {'name': 'group42agent-totally_blind', 'botclass': Group42Agent,
+        #  'settings': {'slowdown': 1, 'colorblind': True, 'shapeblind': True}}
     ]
 
     print("Started world...")

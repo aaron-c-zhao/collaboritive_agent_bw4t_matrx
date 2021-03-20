@@ -84,7 +84,7 @@ class Group42Agent(BW4TBrain):
         return state
 
     def decide_on_bw4t_action(self, state: State):
-        self.log("carrying: " + str(self.map_state.carried_blocks))
+        # self.log("carrying: " + str(self.map_state.carried_blocks))
 
         action = self.agent_state.process(self.map_state, state)
 

@@ -47,9 +47,30 @@ class BrainStrategy:
         return agst.WalkingState(self, navigator, state_tracker)
 
     def check_update(self, map_state: MapState):
+        return
         # match_blocks(b1, b2)
-        for agent in map_state.blocks_carried_by_agents:
-            None
+        if len(map_state.carried_blocks) == 0:
+            return
+
+        blocks = list([block for agent in map_state.blocks_carried_by_agents.values() for block in agent])
+        if len(blocks) == 0:
+            return
+        target_block_properties = [d['properties'] for d in map_state.drop_zone]
+        shapes = [d['shape'] for d in target_block_properties]
+        colors = [d['colour'] for d in target_block_properties]
+        # all fully found blocks
+        for block in list(filter(lambda b: b['visited'] == 3, blocks)):
+            if block['shape'] in shapes:
+                shapes.pop(block['shape'])
+            if block['colour'] in colors:
+                colors.remove(block['colour'])
+
+        shapes = set(shapes)
+        colors = set(colors)
+
+        unnecessary_blocks = [map_state.carried_blocks]
+
+
         pass
 
 

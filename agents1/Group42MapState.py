@@ -34,8 +34,8 @@ class MapState:
         self.blocks_carried_by_agents = {}
         self.agent_locations = {}
 
-        for agentId in state['World']['team_members']:
-            self.blocks_carried_by_agents[agentId] = []
+        for agent_id in state['World']['team_members']:
+            self.blocks_carried_by_agents[agent_id] = []
 
     def _update_ghost_block(self, ghost_blocks, is_parsed):
         if ghost_blocks is not None:
@@ -162,31 +162,25 @@ class MapState:
         self.drop_zone = list(map(lambda d: {
             'location': d['location'],
             'properties': {
-                'shape': None,
-                'colour': None
+                'shape': None, #d['visualization']['shape'] if 'shape' in d['visualization'] else None,
+                'colour': None #d['visualization']['colour'] if 'colour' in d['visualization'] else None
             },
             'filled': None  # block which has been dropped on this spot 
         }, drop_zone_objs))
 
-        # self.goal_blocks = list(map(lambda d: {
+        # drop_zone_objs.sort(key=lambda d: d['location'][1], reverse=True)
+        # self.goal_blocks = [{
+        #     'priority': i,
         #     'goal_location': d['location'],
+        #     'found_blocks': [],
+        #     'plausible_blocks': {'colour': [], 'shape': []},
         #     'properties': {
-        #         'shape': None,
-        #         'colour': None
+        #         'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
+        #         'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None
         #     },
-        #     'filled': None,
-        #     'found': False# block which has been dropped on this spot
-        # }, drop_zone_objs.sort(key = lambda x : x)))\
+        #     'filled': None,  # block which has been dropped on this spot
+        # } for i, d in enumerate(drop_zone_objs)]
 
-        # [
-        # {'priority': 1,
-        # 'goal_location': (x, y),
-        # 'found': False
-        # 'Target_block': {block_info...}
-        # 'Found_blocks': [sort on distance to goal]
-        # 'Plausible_blocks': ['color': {}, 'shape': {}]
-        # }
-        # ]
         self.drop_zone.reverse()
 
     def _get_rooms(self, state):
@@ -244,9 +238,9 @@ class MapState:
 
         self.agent_locations['self'] = state.get_self()['location']
         # TODO update other agents position based on messaging and not only on what we see
-        agents = state.get_agents()
-        for agent in agents:
-            self.agent_locations[agent['obj_id']] = agent['location']
+        # agents = state.get_agents()
+        # for agent in agents:
+        #     self.agent_locations[agent['obj_id']] = agent['location']
 
         if message is not None:
             if message['type'] == 'BlockFound':
@@ -255,17 +249,17 @@ class MapState:
                 self.pop_block(message['block'], queue=False)
 
                 # not sure if this is the way to do this
-                carried_blocks = self.blocks_carried_by_agents[message['agentId']]
-                carried_blocks.append(message['block'])
-                self.blocks_carried_by_agents[message['agentId']] = carried_blocks
+                # carried_blocks = self.blocks_carried_by_agents[message['agentId']]
+                # carried_blocks
+                self.blocks_carried_by_agents[message['agentId']].append(message['block'])
                 # print("carried blocks after pickup:", self.blocks_carried_by_agents)
 
             elif message['type'] == 'Dropped':
                 self.drop_block(message['drop_info'], queue=False)
 
-                carried_blocks = self.blocks_carried_by_agents[message['agentId']]
-                carried_blocks.remove(message['drop_info']['block'])
-                self.blocks_carried_by_agents[message['agentId']] = carried_blocks
+                # carried_blocks = self.blocks_carried_by_agents[message['agentId']]
+                # carried_blocks
+                self.blocks_carried_by_agents[message['agentId']].remove(message['drop_info']['block'])
                 # print("carried blocks after drop:", self.blocks_carried_by_agents)
 
     def get_message_queue(self):
@@ -420,29 +414,15 @@ class MapState:
         '''
         Remove a block from interal collection. Note, the block must be a SINGLE block.
         '''
-        if isinstance(block, dict):
-            if queue:
-                self._queue_message('PickUp', block)
-            self.blocks.pop(block['id'], None)
-            self.carried_blocks[block['id']] = None
-            return
         if isinstance(block, str):
-            if queue:
-                self._queue_message('PickUp', self.blocks.get(block))
-            self.blocks.pop(block, None)
-            self.carried_blocks[block] = None
+            block = self.blocks.get(block)
 
-    # def get_matching_blocks_within_range(self, loc: tuple, rag=2):
-    #     blocks = self.filter_blocks_within_range(rag, loc)
-    #     if len(blocks) > 0:
-    #         return self.get_matching_blocks(blocks)
-    #     return []
-
-    # def get_matching_blocks_within_range(self, loc: tuple, rag=2, blocks=None):
-    #     blocks = self.filter_blocks_within_range(rag, loc, blocks)
-    #     if len(blocks) > 0:
-    #         return self.get_matching_blocks(blocks=blocks)
-    #     return []
+        # if it called by ourselves, tell other people and save it into our blocks
+        if queue:
+            self._queue_message('PickUp', block)
+            self.carried_blocks[block['id']] = block
+        # otherwise it's a message from other people, so delete from our blocks
+        self.blocks.pop(block['id'], None)
 
     def drop_block(self, drop_info: dict, queue=True):
         block_id = self.carried_blocks.pop(drop_info['block']['id'], None)
