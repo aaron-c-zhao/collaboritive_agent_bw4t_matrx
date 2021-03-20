@@ -83,14 +83,12 @@ class Group42Agent(BW4TBrain):
         return state
 
     def decide_on_bw4t_action(self, state: State):
-        return 
-
-        self.log("carrying: " + str(self.map.carried_blocks))
+        self.log("carrying: " + str(self.map_state.carried_blocks))
 
         action = self.agent_state.process(self.map_state, state)
 
         # finally, send all messages stored in the mapstate Queue
-        for message in self.map.get_message_queue():
+        for message in self.map_state.get_message_queue():
             self.send_message(message)
 
         return action

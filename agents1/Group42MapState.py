@@ -139,8 +139,6 @@ class MapState:
                                     from_id=self.agent_id,
                                     to_id=None)))
 
-    
-
     def _parse_blocks(self, blocks):
         '''
         Parse the blocks from the agent's own discovery
@@ -276,7 +274,7 @@ class MapState:
             # if room['visited']:
             #     continue
             for door in room['doors']:
-                dist.append([room['room_id'], (abs(loc[2]-door['location'][2]), matrx.utils.get_distance(loc, door['location']))])
+                dist.append([room['room_id'], (abs(loc[1]-door['location'][1]), matrx.utils.get_distance(loc, door['location']))])
         if len(dist) == 0:
             return None
         return min(dist, key=operator.itemgetter(1))[0]
