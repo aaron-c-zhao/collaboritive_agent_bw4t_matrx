@@ -34,7 +34,8 @@ class Group42Agent(BW4TBrain):
         self._door_range = 1
         # self.agent_state: AgentState = None
         # self.change_state(
-        self.change_state(self.strategy.initial_state(Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
+        self.change_state(
+            self.strategy.initial_state(Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
         #     agst.WalkingState(self.strategy, Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
         # self.holding = []
 
@@ -77,8 +78,6 @@ class Group42Agent(BW4TBrain):
                 self._handle_message(message)
 
         self.received_messages.clear()
-
-
 
         # for testing
         # self.log("current blocks: " + str(self.map.blocks))

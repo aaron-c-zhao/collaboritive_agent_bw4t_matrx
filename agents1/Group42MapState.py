@@ -163,8 +163,8 @@ class MapState:
         self.drop_zone = list(map(lambda d: {
             'location': d['location'],
             'properties': {
-                'shape': None, #d['visualization']['shape'] if 'shape' in d['visualization'] else None,
-                'colour': None #d['visualization']['colour'] if 'colour' in d['visualization'] else None
+                'shape': None,  # d['visualization']['shape'] if 'shape' in d['visualization'] else None,
+                'colour': None  # d['visualization']['colour'] if 'colour' in d['visualization'] else None
             },
             'filled': None  # block which has been dropped on this spot 
         }, drop_zone_objs))
@@ -232,7 +232,7 @@ class MapState:
             blocks = state.get_with_property({'is_collectable': True})
             if blocks is not None:
                 self.visible_blocks = self._parse_blocks(blocks)
-                
+
                 self._update_block(self.visible_blocks)
 
             # update drop zone information if ghost block found
@@ -260,7 +260,6 @@ class MapState:
     def get_message_queue(self):
         res = self.message_queue.copy()
         self.message_queue.clear()
-
 
         return res
 

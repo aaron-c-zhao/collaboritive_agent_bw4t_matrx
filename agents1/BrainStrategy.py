@@ -70,7 +70,6 @@ class BrainStrategy:
 
         unnecessary_blocks = [map_state.carried_blocks]
 
-
         pass
 
 

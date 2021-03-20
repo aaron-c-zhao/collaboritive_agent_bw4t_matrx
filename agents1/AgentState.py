@@ -112,7 +112,6 @@ class ExploringRoomState(AgentState):
         if self.agent.is_max_capacity():
             self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
 
-
         # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
             self.navigator.reset_full()
