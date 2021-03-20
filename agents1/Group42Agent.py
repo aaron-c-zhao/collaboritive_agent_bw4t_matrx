@@ -1,13 +1,10 @@
-import json
-import random  # type: ignore
 from typing import Dict
 
-import numpy as np  # type: ignore
-from matrx.actions import MoveNorth, OpenDoorAction  # type: ignore
-from matrx.actions.move_actions import MoveEast, MoveSouth, MoveWest  # type: ignore
-from matrx.agents.agent_utils.state import State  # type: ignore
+from matrx.agents import Navigator, StateTracker
+from matrx.agents.agent_utils.state import State
 from matrx.messages import Message
 
+import agents1.AgentState as agst
 from agents1.BrainStrategy import BrainStrategy
 from agents1.Group42MapState import MapState
 from bw4t.BW4TBrain import BW4TBrain
@@ -20,28 +17,64 @@ class Group42Agent(BW4TBrain):
 
     def __init__(self, settings: Dict[str, object]):
         super().__init__(settings)
-        self._moves = [MoveNorth.__name__, MoveEast.__name__, MoveSouth.__name__, MoveWest.__name__]
+        # self._moves = [MoveNorth.__name__, MoveEast.__name__, MoveSouth.__name__, MoveWest.__name__]
         self.settings = settings
+        self.strategy = None
+        self.map_state = None
+        self.agents = None
+        self._door_range = 1
+        self.agent_state: agst.AgentState = None
+        self.holding = []
 
     def initialize(self):
         super().initialize()
         self.strategy = BrainStrategy.get_brain_strategy(self.settings, self)
-        self.map = None
-        self.agents = None
+        # self.map_state = None
+        # self.agents = None
         self._door_range = 1
 
+        # self.agent_state: AgentState = None
+        self.change_state(agst.WalkingState(Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
+        # self.holding = []
+
+    def change_state(self, newState: agst.AgentState):
+        self.agent_state = newState
+        self.agent_state.set_agent(self)
+
+    def grab_block(self, block):
+        self.holding.append(block)
+        self.holding.sort(key=lambda b: b[0])
+
+    def drop_block(self, block):
+        for i, b in enumerate(self.holding):
+            if b[1] == block[1]:
+                self.holding.pop(i)
+                return
+
+    def is_holding_blocks(self):
+        return len(self.agent_properties['is_carrying']) > 0
+
+    def is_max_capacity(self):
+        return len(self.agent_properties['is_carrying']) > 2
+
+    def get_highest_priority_block(self):
+        # print(self.agent_properties['is_carrying'][0])
+        return self.holding[0]
+
     def filter_bw4t_observations(self, state) -> State:
-        if self.map is None:
-            self.map = MapState(state)
+        if self.map_state is None:
+            self.map_state = MapState(state)
             self.agents = state['World']['team_members']
 
         # Updating the map with visible blocks
-        self.map.update_map(None, state)
+        self.map_state.update_map(None, state)
 
         # handle messages
         for message in self.received_messages:
             self._handle_message(state, message)
 
+        # update state
+        new_blocks = self.map_state.update_map(None, state)
 
         # for testing
         # self.log("current blocks: " + str(self.map.blocks))
@@ -50,10 +83,11 @@ class Group42Agent(BW4TBrain):
         return state
 
     def decide_on_bw4t_action(self, state: State):
+        return 
 
         self.log("carrying: " + str(self.map.carried_blocks))
 
-        action = self.strategy.get_action(self.map, state)
+        action = self.agent_state.process(self.map_state, state)
 
         # finally, send all messages stored in the mapstate Queue
         for message in self.map.get_message_queue():
@@ -79,7 +113,7 @@ class Group42Agent(BW4TBrain):
     def _handle_message(self, state, message):
         if type(message) is dict:
             self.log("handling message " + str(message))
-            self.map.update_map(message, state)
+            self.map_state.update_map(message, state)
 
     def _broadcast(self, type, data):
         content = {

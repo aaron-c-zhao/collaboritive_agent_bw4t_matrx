@@ -6,19 +6,20 @@ from matrx.agents.agent_utils.state import State
 
 import agents1.BrainStrategy as BrainStrategy
 from agents1 import Group42MapState
+import agents1.Group42Agent as Group42Agent
 
 
 class AgentState:
     def __init__(self, navigator: Navigator, state_tracker: StateTracker):
-        self.brain: BrainStrategy = None
+        self.agent: Group42Agent = None
         self.navigator = navigator
         self.navigator.reset_full()
         self.state_tracker = state_tracker
 
-    def set_brain(self, brain: BrainStrategy):
-        self.brain = brain
+    def set_agent(self, agent: Group42Agent):
+        self.agent = agent
 
-    def process(self, map: Group42MapState, state: State):
+    def process(self, map_state: Group42MapState, state: State):
         self.state_tracker.update(state)
         # raise NotImplementedError("statePlease implement this abstract method")
 
@@ -43,17 +44,17 @@ class AgentState:
 # }
 
 class WalkingState(AgentState):
-    def process(self, map: Group42MapState, state: State):
-        super().process(map, state)
+    def process(self, map_state: Group42MapState, state: State):
+        super().process(map_state, state)
 
-        closest_room_id = map.get_closest_unvisited_room(map.get_agent_location(state))
+        closest_room_id = map_state.get_closest_unvisited_room(map_state.get_agent_location())
         if closest_room_id is None:
-            self.brain.change_state(WaitingState(self.navigator, self.state_tracker))
+            self.agent.change_state(WaitingState(self.navigator, self.state_tracker))
             return None, {}
 
         # no current waypoints: find the closest room and go there
         if len(self.navigator.get_all_waypoints()) == 0:
-            room = map.get_room(closest_room_id)
+            room = map_state.get_room(closest_room_id)
             door = room['doors'][0]['location']
             # if door is closed, reach the spot below it first
             if not room['doors'][0]['status']:
@@ -61,8 +62,8 @@ class WalkingState(AgentState):
             self.navigator.add_waypoint(door)
 
         if self.navigator.is_done:
-            room = map.get_room(closest_room_id)
-            self.brain.change_state(ExploringRoomState(self.navigator, self.state_tracker, closest_room_id))
+            room = map_state.get_room(closest_room_id)
+            self.agent.change_state(ExploringRoomState(self.navigator, self.state_tracker, closest_room_id))
 
             # open the door if it's not open
             if not room['doors'][0]['status']:
@@ -94,40 +95,40 @@ class ExploringRoomState(AgentState):
             self.navigator.add_waypoint(self.unvisited_squares.pop())
 
         # update the unvisited squares
-        self.__update_visited_squares(map_state.get_agent_location(state))
+        self.__update_visited_squares(map_state.get_agent_location())
+
+        # if full capacity, start delivering
+        # TODO make this smarter by cooperating with other agents
+        if self.agent.is_max_capacity():
+            self.agent.change_state(DeliveringState(self.navigator, self.state_tracker))
 
         # if we visited all squares in this room, we can go back to walking
         if len(self.unvisited_squares) == 0:
-            self.navigator.reset()
+            self.navigator.reset_full()
             map_state.visit_room(self.room_id)
-            self.brain.change_state(WalkingState(self.navigator, self.state_tracker))
+            self.agent.change_state(WalkingState(self.navigator, self.state_tracker))
             return None, {}
 
         # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
-            self.navigator.reset()
+            self.navigator.reset_full()
             self.navigator.add_waypoint(self.unvisited_squares.pop())
 
         # check if any of the blocks match the goal blocks
-        matching_blocks = map_state.get_matching_blocks_within_range(map_state.get_agent_location(state))
-        for block in matching_blocks:
+        matching_blocks = map_state.get_matching_blocks_within_range(map_state.get_agent_location())
+        for block in filter(lambda b: not b[3], matching_blocks):
             # if we're too far away, temporarily set new destination to get closer to the block and pick it up
-            if self.distance(map_state.get_agent_location(state),
-                             block[2]['location']) > 1:  # TODO extract hardcoded distance
-                self.navigator.reset()
+            # TODO extract hardcoded distance
+            if self.distance(map_state.get_agent_location(), block[2]['location']) > 1:
+                self.navigator.reset_full()
                 self.navigator.add_waypoint(block[2]['location'])
                 return self.navigator.get_move_action(self.state_tracker), {}
 
             # otherwise grab this block
             self.navigator.is_done = True
-            self.brain.grab_block(block)
+            self.agent.grab_block(block)
             map_state.pop_block(block[2])
             return GrabObject.__name__, {'object_id': block[2]['id']}
-
-        # if full capacity, start delivering
-        # TODO make this smarter by cooperating with other agents
-        if self.brain.is_max_capacity():
-            self.brain.change_state(DeliveringState(self.navigator, self.state_tracker))
 
         return self.navigator.get_move_action(self.state_tracker), {}
 
@@ -141,11 +142,6 @@ class ExploringRoomState(AgentState):
         self.unvisited_squares.difference_update(visible_squares)
 
 
-class GrabBoxState(AgentState):
-    def process(self, map_state: Group42MapState, state: State, ):
-        pass
-
-
 class DeliveringState(AgentState):
     def __init__(self, navigator: Navigator, state_tracker: StateTracker):
         super().__init__(navigator, state_tracker)
@@ -156,16 +152,16 @@ class DeliveringState(AgentState):
 
         # if not started to drop a box
         if self.delivering_block is None:
-            if self.brain.is_holding_blocks():
-                self.navigator.reset()
-                self.delivering_block = self.brain.get_highest_priority_block()
+            if self.agent.is_holding_blocks():
+                self.navigator.reset_full()
+                self.delivering_block = self.agent.get_highest_priority_block()
                 self.navigator.add_waypoint(self.delivering_block[1])
             else:
-                self.brain.change_state(WalkingState(self.navigator, self.state_tracker))
+                self.agent.change_state(WalkingState(self.navigator, self.state_tracker))
 
         elif self.navigator.is_done:
-            self.navigator.reset()
-            self.brain.drop_block(self.delivering_block)
+            self.navigator.reset_full()
+            self.agent.drop_block(self.delivering_block)
             drop_block = {'location': self.delivering_block[1], 'block': self.delivering_block[2]}
             map_state.drop_block(drop_block)
             self.delivering_block = None
