@@ -71,11 +71,14 @@ class Group42Agent(BW4TBrain):
         self.map_state.update_map(None, state)
 
         # handle messages
+        # self.log("received: " + str(len(self.received_messages)) + " messages")
         for message in self.received_messages:
-            self._handle_message(state, message)
+            if message['agentId'] != self.map_state.agent_id:
+                self._handle_message(message)
 
-        # update state
-        new_blocks = self.map_state.update_map(None, state)
+        self.received_messages.clear()
+
+
 
         # for testing
         # self.log("current blocks: " + str(self.map.blocks))
@@ -90,6 +93,7 @@ class Group42Agent(BW4TBrain):
 
         # finally, send all messages stored in the mapstate Queue
         for message in self.map_state.get_message_queue():
+            # self.log("sending message " + str(message))
             self.send_message(message)
 
         return action
@@ -109,10 +113,10 @@ class Group42Agent(BW4TBrain):
     #             doors_in_range.append(object_id)
     #     return doors_in_range
 
-    def _handle_message(self, state, message):
+    def _handle_message(self, message):
         if type(message) is dict:
             self.log("handling message " + str(message))
-            self.map_state.update_map(message, state)
+            self.map_state.update_map(message, None)
 
     def _broadcast(self, type, data):
         content = {

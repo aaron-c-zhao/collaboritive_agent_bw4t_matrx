@@ -111,6 +111,7 @@ class MapState:
 
         # queue a message with all updated blocks
         if len(res) > 0 and queue:
+            # print(self.agent_id, " -- broadcasting updated blocks", res, " queue", queue)
             self._queue_message('BlockFound', res)
 
     def _queue_message(self, type, data):
@@ -226,45 +227,40 @@ class MapState:
         own discovery or from messages. Message should be passed as dict.
         Depending on the type attribute of message, this function react differently.
         '''
-        # update block info according to agent's own discovery
-        blocks = state.get_with_property({'is_collectable': True})
-        if blocks is not None:
-            self.visible_blocks = self._parse_blocks(blocks)
-            self._update_block(self.visible_blocks)
+        if state is not None:
+            # update block info according to agent's own discovery
+            blocks = state.get_with_property({'is_collectable': True})
+            if blocks is not None:
+                self.visible_blocks = self._parse_blocks(blocks)
+                
+                self._update_block(self.visible_blocks)
 
-        # update drop zone information if ghost block found
-        ghost_blocks = state.get_with_property({'is_goal_block': True})
-        self._update_ghost_block(ghost_blocks, False)
+            # update drop zone information if ghost block found
+            ghost_blocks = state.get_with_property({'is_goal_block': True})
+            self._update_ghost_block(ghost_blocks, False)
 
-        self.agent_locations['self'] = state.get_self()['location']
-        # TODO update other agents position based on messaging and not only on what we see
-        # agents = state.get_agents()
-        # for agent in agents:
-        #     self.agent_locations[agent['obj_id']] = agent['location']
+            self.agent_locations['self'] = state.get_self()['location']
+            # TODO update other agents position based on messaging and not only on what we see
+            # agents = state.get_agents()
+            # for agent in agents:
+            #     self.agent_locations[agent['obj_id']] = agent['location']
 
         if message is not None:
             if message['type'] == 'BlockFound':
+                # print(self.agent_id, "-- received blockfound message", message)
                 self._update_block(message['blocks'], queue=False)
             elif message['type'] == 'PickUp':
                 self.pop_block(message['block'], queue=False)
-
-                # not sure if this is the way to do this
-                # carried_blocks = self.blocks_carried_by_agents[message['agentId']]
-                # carried_blocks
                 self.blocks_carried_by_agents[message['agentId']].append(message['block'])
-                # print("carried blocks after pickup:", self.blocks_carried_by_agents)
 
             elif message['type'] == 'Dropped':
                 self.drop_block(message['drop_info'], queue=False)
-
-                # carried_blocks = self.blocks_carried_by_agents[message['agentId']]
-                # carried_blocks
                 self.blocks_carried_by_agents[message['agentId']].remove(message['drop_info']['block'])
-                # print("carried blocks after drop:", self.blocks_carried_by_agents)
 
     def get_message_queue(self):
         res = self.message_queue.copy()
         self.message_queue.clear()
+
 
         return res
 
