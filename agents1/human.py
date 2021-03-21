@@ -8,7 +8,7 @@ from matrx.agents.agent_utils.state import State # type: ignore
 
 from bw4t.BW4TBrain import BW4TBrain
 from matrx.agents import HumanAgentBrain # type: ignore
-from agents1.Group42MapState import MapState
+from agents1.Team42MapState import MapState
 
 from matrx.messages import Message
 

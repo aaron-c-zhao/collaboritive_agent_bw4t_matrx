@@ -5,7 +5,7 @@ from matrx.agents.agent_utils.state import State
 
 import agents1.Team42AgentState as agst
 import agents1.Team42Agent as Team42Agent
-from agents1.Group42MapState import MapState
+from agents1.Team42MapState import MapState
 from agents1.utils import reduce
 
 '''

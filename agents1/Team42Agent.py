@@ -6,7 +6,7 @@ from matrx.messages import Message
 
 import agents1.Team42AgentState as agst
 from agents1.Team42Strategy import Team42Strategy
-from agents1.Group42MapState import MapState
+from agents1.Team42MapState import MapState
 from bw4t.BW4TBrain import BW4TBrain
 
 

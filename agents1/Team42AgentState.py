@@ -7,7 +7,7 @@ from matrx.agents.agent_utils.state import State
 
 import agents1.Team42Strategy as Team42Strategy
 import agents1.Team42Agent as Team42Agent
-from agents1 import Group42MapState
+from agents1 import Team42MapState
 
 
 class Team42AgentState:
@@ -21,7 +21,7 @@ class Team42AgentState:
     def set_agent(self, agent: Team42Agent):
         self.agent = agent
 
-    def process(self, map_state: Group42MapState, state: State):
+    def process(self, map_state: Team42MapState, state: State):
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
         if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, DeliveringState):
@@ -50,7 +50,7 @@ class Team42AgentState:
 # }
 
 class WalkingState(Team42AgentState):
-    def process(self, map_state: Group42MapState, state: State):
+    def process(self, map_state: Team42MapState, state: State):
         super().process(map_state, state)
 
         closest_room_id = map_state.get_closest_unvisited_room(map_state.get_agent_location())
@@ -93,7 +93,7 @@ class ExploringRoomState(Team42AgentState):
         self.unvisited_squares: Set = None
         self.pending_block = None
 
-    def process(self, map_state: Group42MapState, state: State):
+    def process(self, map_state: Team42MapState, state: State):
         super().process(map_state, state)
 
         # if we tried to grab a block previous tick, check if we have actually received it from god.
@@ -167,7 +167,7 @@ class DeliveringState(Team42AgentState):
         super().__init__(strategy, navigator, state_tracker)
         self.delivering_block = None
 
-    def process(self, map_state: Group42MapState, state: State):
+    def process(self, map_state: Team42MapState, state: State):
         super().process(map_state, state)
 
         # if we don't have any more blocks, just wait
@@ -207,7 +207,7 @@ class RiddingState(Team42AgentState):
         self.previous_state = previous_state
         self.blocks_to_remove = blocks_to_rid
 
-    def process(self, map_state: Group42MapState, state: State):
+    def process(self, map_state: Team42MapState, state: State):
         # super().process(map_state, state)
         if len(self.blocks_to_remove):
             return DropObject.__name__, {'object_id': self.blocks_to_remove.pop()}
@@ -216,7 +216,7 @@ class RiddingState(Team42AgentState):
 
 
 class WaitingState(Team42AgentState):
-    def process(self, map_state: Group42MapState, state: State):
+    def process(self, map_state: Team42MapState, state: State):
         # TODO maybe do something smart than just standing there...
         super().process(map_state, state)
 
