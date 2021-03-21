@@ -103,7 +103,14 @@ class MapState:
                 to_be_updated['colour'] = block['colour'] if block['colour'] is not None else None
                 to_be_updated['visited'] = self._get_block_status(block, True)
 
-            self._match_to_dropzones(to_be_updated)
+            # self._match_to_dropzones(to_be_updated)
+            for drop_spot in self.goal_blocks:
+                # if the block discovered is in the drop zone then update the drop_zone
+                if to_be_updated['location'] == drop_spot['location']:
+                    if to_be_updated['is_collectable']:
+                        drop_spot['filled'] = to_be_updated
+                    else:
+                        self._update_ghost_block([to_be_updated], True)
 
             self.blocks[block['id']] = to_be_updated  # only update the blocks when the block is collectable
             if updated is True:
