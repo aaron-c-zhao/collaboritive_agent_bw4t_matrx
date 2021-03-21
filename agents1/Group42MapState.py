@@ -87,7 +87,7 @@ class MapState:
             # if it's a goal block
             if not block['is_collectable']:
                 self._update_ghost_block([block], True)
-                return
+                continue
             # if it's a normal block
             to_be_updated = self.blocks.pop(block['id'], None)  # check if the block is already in the collection
             updated = False
@@ -391,7 +391,6 @@ class MapState:
                               block['colour'] == g_block['properties']['colour'] and \
                               g_block['properties']['shape'] is not None and \
                               block['shape'] == g_block['properties']['shape']
-
                 if is_matching:
                     res.append([
                         i,
@@ -400,7 +399,6 @@ class MapState:
                         True if block['id'] in self.carried_blocks.keys() else False
                         # whether the block has been picked up
                     ])
-
         return res
 
     def get_mismatched_spots(self):
