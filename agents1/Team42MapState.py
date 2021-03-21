@@ -6,9 +6,10 @@ from matrx.messages import Message
 
 class MapState:
     '''
-    Useful information extracted from the world, organised
-    in a way that is much easier to understand for the agent.
-    Also, support the agent by providing handy utility functions.
+    Aid the agents during the process. Preserve information gained from state or messages since those get
+    lost very soon. Represents the internal state of the agent.
+
+    This class also implements utility functions related to map data. See public methods for the API.
     '''
 
     def __init__(self, state):
@@ -22,22 +23,28 @@ class MapState:
             'visited': The block will be marked as visited(3) when both the shape info and the colour
                 info have been discovered. Otherwise, this attribute has value 1 for having shape info only,
                 and 2 for having colour info only.
+            'is_collectable': this attribute is mainly used to distinguish ghost_blocks from normal block. When a ghost
+                is discovered, it only updates the drop_zone information and leave the blocks alone.
         }
 
         '''
-        self.message_queue = []
-        self.agent_id = state.get_self()['obj_id']
-        self.blocks = {}
-        self.carried_blocks = {}
+        self.message_queue = [] # message to be sent
+        self.agent_id = state.get_self()['obj_id'] # id of the agent
+        self.blocks = {} # all the blocks that has been discovered by the agents exclude the ones that is carried by agents. 
+        self.carried_blocks = {} # the blocks that have been confiremed carried by the agent
         self.blocks_carried_by_agents = {}
         self.agent_locations = {}
-        self._get_drop_zone(state)
-        self._get_rooms(state)
+        self._get_drop_zone(state) # retrive the information about drop zone
+        self._get_rooms(state) # retrive the map information
 
         for agent_id in state['World']['team_members']:
             self.blocks_carried_by_agents[agent_id] = []
 
     def _update_ghost_block(self, ghost_blocks, is_parsed):
+        '''
+        When a non-collectable block is discovered, its information is used to update
+        the drop_zone knowledge of the agent.
+        '''
         if ghost_blocks is not None:
             ghost_blocks_parsed = ghost_blocks
             if not is_parsed:
@@ -51,6 +58,9 @@ class MapState:
                             drop_spot['properties']['shape'] = ghost_block['shape']
 
     def _extract_room(self, room):
+        '''
+        Extract the room id.
+        '''
         if isinstance(room, str):
             words = room.split()
             return words[len(words) - 1]
@@ -123,6 +133,7 @@ class MapState:
         if len(res) > 0 and queue:
             self._queue_message('BlockFound', res)
 
+
     def _queue_message(self, type, data):
         content = {}
 
@@ -169,15 +180,6 @@ class MapState:
 
     def _get_drop_zone(self, state):
         goal_blocks = state.get_with_property({'is_goal_block': True})
-        # self.drop_zone = list(map(lambda d: {
-        #     'location': d['location'],
-        #     'properties': {
-        #         'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
-        #         'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None
-        #     },
-        #     'filled': None  # block which has been dropped on this spot
-        # }, drop_zone_objs))
-        # self.drop_zone.reverse()
 
         # send to other agents about what we know of the drop_zones
         self._queue_message('BlockFound', list(map(lambda d: {
@@ -202,6 +204,9 @@ class MapState:
         } for i, d in enumerate(goal_blocks)]
 
     def _get_rooms(self, state):
+        '''
+        retrive information of the rooms from state. Only called once when MapState is initialized.
+        '''
         self.rooms = {}
         room_names = state.get_all_room_names()
         for room in room_names:
@@ -261,6 +266,9 @@ class MapState:
         return 0
 
     def _get_dist(self, loc1: tuple, loc2: tuple):
+        '''
+        Calculate for manhattan distance.
+        '''
         return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
 
     #################################################################################################
@@ -304,6 +312,8 @@ class MapState:
                 self.drop_block(message['drop_info'], queue=False)
                 self.blocks_carried_by_agents[message['agentId']].remove(message['drop_info']['block'])
 
+
+
     def get_message_queue(self):
         res = self.message_queue.copy()
         self.message_queue.clear()
@@ -328,14 +338,14 @@ class MapState:
         dist = []
         rooms = self.get_unvisited_rooms()
         for room in rooms:
-            # if room['visited']:
-            #     continue
             for door in room['doors']:
                 dist.append([room['room_id'],
                              (abs(loc[1] - door['location'][1]), matrx.utils.get_distance(loc, door['location']))])
         if len(dist) == 0:
             return None
         return min(dist, key=operator.itemgetter(1))[0]
+
+
 
     def get_candidate_blocks_shape(self):
         '''
@@ -349,6 +359,8 @@ class MapState:
                 res.append(block)
         return res
 
+
+
     def get_candidate_blocks_colour(self):
         '''
         @return list of blocks which does not have shape information but have matching shape with one
@@ -361,6 +373,8 @@ class MapState:
                 res.append(block)
         return res
 
+        
+
     def get_matching_blocks(self):
         '''
         @return [{x, y, z}]
@@ -371,12 +385,6 @@ class MapState:
             could return empty list
         '''
         res = []
-        # convert blindness into visibility (for clarity)
-        # 1 for only shape, 2 for only colour, 3 for both
-        # filtering_criteria = ((not color_blind) << 1) | (not shape_blind)
-        # return early if 0 (totally blind)
-        # if filtering_criteria == 0:
-        #     return
         blocks = self.blocks.values()
         # check if all goal blocks has been filled or none of them has been discovered
         for block in blocks:
@@ -393,7 +401,7 @@ class MapState:
                               block['shape'] == g_block['properties']['shape']
                 if is_matching:
                     res.append([
-                        i,
+                        i, # priority(order)
                         g_block['location'],
                         block,
                         True if block['id'] in self.carried_blocks.keys() else False
