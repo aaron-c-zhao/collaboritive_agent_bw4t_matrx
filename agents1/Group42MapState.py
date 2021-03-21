@@ -168,7 +168,7 @@ class MapState:
         return parsed_blocks
 
     def _get_drop_zone(self, state):
-        drop_zone_objs = state.get_with_property({'is_drop_zone': True})
+        goal_blocks = state.get_with_property({'is_goal_block': True})
         # self.drop_zone = list(map(lambda d: {
         #     'location': d['location'],
         #     'properties': {
@@ -186,9 +186,9 @@ class MapState:
             'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
             'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None,
             'is_collectable': False,
-        }, drop_zone_objs)))
+        }, goal_blocks)))
 
-        drop_zone_objs.sort(key=lambda d: d['location'][1], reverse=True)
+        goal_blocks.sort(key=lambda d: d['location'][1], reverse=True)
         self.goal_blocks = [{
             'priority': i,
             'location': d['location'],
@@ -199,7 +199,7 @@ class MapState:
                 'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None
             },
             'filled': None,  # block which has been dropped on this spot
-        } for i, d in enumerate(drop_zone_objs)]
+        } for i, d in enumerate(goal_blocks)]
 
     def _get_rooms(self, state):
         self.rooms = {}
