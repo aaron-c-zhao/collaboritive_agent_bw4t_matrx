@@ -95,13 +95,16 @@ class MapState:
                 to_be_updated = block
                 updated = True
             else:  # update shape, colour and status of the block if the block is in the collection
-                if to_be_updated['location'] != block['location'] or to_be_updated['shape'] != block['shape'] or \
-                        to_be_updated['colour'] != block['colour']:
+                if to_be_updated['location'] != block['location']:
+                    to_be_updated['location'] = block['location']
                     updated = True
-                to_be_updated['location'] = block['location']
-                to_be_updated['shape'] = block['shape'] if block['shape'] is not None else None
-                to_be_updated['colour'] = block['colour'] if block['colour'] is not None else None
-                to_be_updated['visited'] = self._get_block_status(block, True)
+                if block['shape'] is not None and to_be_updated['shape'] != block['shape']:
+                    to_be_updated['shape'] = block['shape'] if block['shape'] is not None else None
+                    updated = True
+                if block['colour'] is not None and to_be_updated['colour'] != block['colour']:
+                    to_be_updated['colour'] = block['colour'] if block['colour'] is not None else None
+                    updated = True
+                to_be_updated['visited'] = self._get_block_status(to_be_updated, True)
 
             # self._match_to_dropzones(to_be_updated)
             for drop_spot in self.goal_blocks:
@@ -113,12 +116,11 @@ class MapState:
                         self._update_ghost_block([to_be_updated], True)
 
             self.blocks[block['id']] = to_be_updated  # only update the blocks when the block is collectable
-            if updated is True:
+            if updated:
                 res.append(to_be_updated)  # return list of updated blocks
 
         # queue a message with all updated blocks
         if len(res) > 0 and queue:
-            # print(self.agent_id, " -- broadcasting updated blocks", res, " queue", queue)
             self._queue_message('BlockFound', res)
 
     def _queue_message(self, type, data):
