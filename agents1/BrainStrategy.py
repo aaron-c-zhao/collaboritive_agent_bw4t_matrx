@@ -87,7 +87,7 @@ class NormalStrategy(BrainStrategy):
 class ColorBlindStrategy(BrainStrategy):
     def get_matching_blocks_nearby(self, map_state: MapState):
         return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
-                                                    blocks=map_state.get_matching_blocks(color_blind=True))
+                                                    blocks=map_state.get_matching_blocks())
 
     def check_update(self, map_state: MapState):
         if len(map_state.carried_blocks) == 0:
@@ -114,7 +114,7 @@ class ColorBlindStrategy(BrainStrategy):
 class ShapeBlindStrategy(BrainStrategy):
     def get_matching_blocks_nearby(self, map_state: MapState):
         return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
-                                                    blocks=map_state.get_matching_blocks(shape_blind=True))
+                                                    blocks=map_state.get_matching_blocks())
 
 
 class SlowStrategy(BrainStrategy):
