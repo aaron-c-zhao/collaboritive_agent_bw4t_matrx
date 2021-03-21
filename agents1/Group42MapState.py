@@ -25,14 +25,14 @@ class MapState:
         }
 
         '''
-        self._get_drop_zone(state)
-        self._get_rooms(state)
-        self.blocks = {}
-        self.carried_blocks = {}
         self.message_queue = []
         self.agent_id = state.get_self()['obj_id']
+        self.blocks = {}
+        self.carried_blocks = {}
         self.blocks_carried_by_agents = {}
         self.agent_locations = {}
+        self._get_drop_zone(state)
+        self._get_rooms(state)
 
         for agent_id in state['World']['team_members']:
             self.blocks_carried_by_agents[agent_id] = []
@@ -163,11 +163,20 @@ class MapState:
         self.drop_zone = list(map(lambda d: {
             'location': d['location'],
             'properties': {
-                'shape': None,  # d['visualization']['shape'] if 'shape' in d['visualization'] else None,
-                'colour': None  # d['visualization']['colour'] if 'colour' in d['visualization'] else None
+                'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
+                'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None
             },
             'filled': None  # block which has been dropped on this spot 
         }, drop_zone_objs))
+
+        # send to other agents about what we know of the drop_zones
+        self._queue_message('BlockFound', list(map(lambda d: {
+            'id': d['obj_id'],
+            'location': d['location'],
+            'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
+            'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None,
+            'is_collectable': False,
+        }, drop_zone_objs)))
 
         # drop_zone_objs.sort(key=lambda d: d['location'][1], reverse=True)
         # self.goal_blocks = [{
@@ -314,7 +323,7 @@ class MapState:
                 res.append(block)
         return res
 
-    def get_matching_blocks(self, color=True, shape=True):
+    def get_matching_blocks(self, color_blind=False, shape_blind=False):
         '''
         @return [{x, y, z}]
             x: drop order
@@ -324,37 +333,32 @@ class MapState:
             could return empty list
         '''
         res = []
-        # 1 for only color, 2 for only shape, 3 for both
-        filtering_criteria = 0 | (color << 1) | (shape << 0)
+        # convert blindness into visibility (for clarity)
+        # 1 for only shape, 2 for only colour, 3 for both
+        filtering_criteria = ((not color_blind) << 1) | (not shape_blind)
+        # return early if 0 (totally blind)
+        if filtering_criteria == 0:
+            return
         blocks = self.blocks.values()
         # check if all goal blocks has been filled or none of them has been discovered
         for block in blocks:
-            if block['visited'] != filtering_criteria:
+            # TODO change & back to (block['visited'] != filtering_criteria)
+            if (block['visited'] & filtering_criteria) == 0:
                 continue
             for i, g_block in enumerate(self.drop_zone):
-                if g_block['properties']['shape'] is not None and g_block['properties']['colour'] is not None:
-                    if block['colour'] == g_block['properties']['colour'] \
-                            and block['shape'] == g_block['properties']['shape']:
-                        res.append([
-                            i,
-                            g_block['location'],
-                            block,
-                            True if block['id'] in self.carried_blocks.keys() else False
-                            # whether the block has been picked up
-                        ])
-                # is_matching = (color and g_block['properties']['colour'] is not None and
-                #                block['colour'] == g_block['properties']['colour']) | \
-                #               (shape and g_block['properties']['shape'] is not None and
-                #                block['shape'] == g_block['properties']['shape'])
-                #
-                # if is_matching:
-                #     res.append([
-                #         i,
-                #         g_block['location'],
-                #         block,
-                #         True if block['id'] in self.carried_blocks.keys() else False
-                #         # whether the block has been picked up
-                #     ])
+                is_matching = (((not color_blind) and g_block['properties']['colour'] is not None and
+                                block['colour'] == g_block['properties']['colour']) << 1 |
+                               ((not shape_blind) and g_block['properties']['shape'] is not None and
+                                block['shape'] == g_block['properties']['shape'])) == filtering_criteria
+
+                if is_matching:
+                    res.append([
+                        i,
+                        g_block['location'],
+                        block,
+                        True if block['id'] in self.carried_blocks.keys() else False
+                        # whether the block has been picked up
+                    ])
         return res
 
     def get_mismatched_spots(self):

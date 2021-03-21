@@ -23,7 +23,9 @@ class AgentState:
 
     def process(self, map_state: Group42MapState, state: State):
         self.state_tracker.update(state)
-        self.strategy.check_update(map_state)
+        rid_blocks = self.strategy.check_update(map_state)
+        if rid_blocks is not None and len(rid_blocks) > 0:
+            self.agent.change_state(RiddingState(self.strategy, self.navigator, self.state_tracker, self, rid_blocks))
         # raise NotImplementedError("statePlease implement this abstract method")
 
 
@@ -83,6 +85,8 @@ class ExploringRoomState(AgentState):
 
     def process(self, map_state: Group42MapState, state: State):
         super().process(map_state, state)
+
+        # if we tried to grab a block previous tick, check if we have actually received it from god.
         if self.pending_block is not None:
             res = state.get_with_property({'carried_by': map_state.agent_id})
             if res is not None and self.pending_block[2]['id'] in [x['obj_id'] for x in res['is_carrying']]:
@@ -95,7 +99,33 @@ class ExploringRoomState(AgentState):
         # if just started exploring the room, then initialise the unvisited squares and go towards one of those squares
         if self.unvisited_squares is None:
             self.unvisited_squares = set(room['indoor_area'])
-            self.navigator.add_waypoint(self.unvisited_squares.pop())
+
+        if len(self.navigator.get_all_waypoints()) == 0:
+            self.navigator.add_waypoint(next(iter(self.unvisited_squares)))
+
+        # check if any of the blocks match the goal blocks
+        matching_blocks = self.strategy.get_matching_blocks_nearby(map_state)
+        for block in filter(lambda b: not b[3], matching_blocks):
+            # if we're too far away, temporarily set new destination to get closer to the block and pick it up
+            # TODO extract hardcoded distance
+            if utils.get_distance(map_state.get_agent_location(), block[2]['location']) > 1:
+                self.navigator.reset_full()
+                self.navigator.add_waypoint(block[2]['location'])
+                return self.navigator.get_move_action(self.state_tracker), {}
+
+            # otherwise grab this block
+            self.navigator.is_done = True
+            self.pending_block = block
+            return GrabObject.__name__, {'object_id': block[2]['id']}
+
+        # if full capacity, start delivering
+        # TODO make this smarter by cooperating with other agents
+        if self.agent.is_max_capacity():
+            self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
+            return None, {}
+
+        # update the unvisited squares
+        self.__update_visited_squares(map_state.get_agent_location())
 
         # if we visited all squares in this room, we can go back to walking
         if len(self.unvisited_squares) == 0:
@@ -104,34 +134,10 @@ class ExploringRoomState(AgentState):
             self.agent.change_state(WalkingState(self.strategy, self.navigator, self.state_tracker))
             return None, {}
 
-        # update the unvisited squares
-        self.__update_visited_squares(map_state.get_agent_location())
-
-        # if full capacity, start delivering
-        # TODO make this smarter by cooperating with other agents
-        if self.agent.is_max_capacity():
-            self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
-
         # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
             self.navigator.reset_full()
             self.navigator.add_waypoint(self.unvisited_squares.pop())
-
-            # check if any of the blocks match the goal blocks
-            # matching_blocks = map_state.get_matching_blocks_within_range(map_state.get_agent_location())
-            matching_blocks = self.strategy.block_found(map_state)
-            for block in filter(lambda b: not b[3], matching_blocks):
-                # if we're too far away, temporarily set new destination to get closer to the block and pick it up
-                # TODO extract hardcoded distance
-                if utils.get_distance(map_state.get_agent_location(), block[2]['location']) > 1:
-                    self.navigator.reset_full()
-                    self.navigator.add_waypoint(block[2]['location'])
-                    return self.navigator.get_move_action(self.state_tracker), {}
-
-                # otherwise grab this block
-                self.navigator.is_done = True
-                self.pending_block = block
-                return GrabObject.__name__, {'object_id': block[2]['id']}
 
         return self.navigator.get_move_action(self.state_tracker), {}
 
@@ -151,7 +157,7 @@ class DeliveringState(AgentState):
         self.delivering_block = None
 
     def process(self, map_state: Group42MapState, state: State):
-        super().process(map, state)
+        super().process(map_state, state)
 
         # if not started to drop a box
         if self.delivering_block is None:
@@ -176,6 +182,21 @@ class DeliveringState(AgentState):
 # TODO dropoff(when invetory full),
 #  rid_unnecessary_blocks(when other people found goal blocks),
 #  check_goal_blocks(when next to goal state and need to check other people's half known blocks)
+
+class RiddingState(AgentState):
+    def __init__(self, strategy: BrainStrategy, navigator: Navigator, state_tracker: StateTracker,
+                 previous_state: AgentState, blocks_to_rid: list):
+        super().__init__(strategy, navigator, state_tracker)
+        self.previous_state = previous_state
+        self.blocks_to_remove = blocks_to_rid
+
+    def process(self, map_state: Group42MapState, state: State):
+        # super().process(map_state, state)
+        if len(self.blocks_to_remove):
+            return DropObject.__name__, {'object_id': self.blocks_to_remove.pop()}
+        self.agent.change_state(self.previous_state)
+        return None, {}
+
 
 class WaitingState(AgentState):
     def process(self, map_state: Group42MapState, state: State):
