@@ -24,7 +24,7 @@ class Team42AgentState:
     def process(self, map_state: Team42MapState, state: State):
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
-        if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, DeliveringState):
+        if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, (DeliveringState, WaitingState)):
             next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
             self.agent.change_state(next_state)
             # TODO early transition by returning new_state.process() instead of doing nothing.
@@ -172,7 +172,9 @@ class DeliveringState(Team42AgentState):
 
         # if we don't have any more blocks, just wait
         if not self.agent.is_holding_blocks():
-            self.agent.change_state(WaitingState(self.strategy, self.navigator, self.state_tracker))
+            next_state = WaitingState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
+            return next_state.process(map_state, state)
 
         # if not started to drop a box
         if self.delivering_block is None:
