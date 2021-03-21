@@ -5,20 +5,20 @@ from matrx.actions import *
 from matrx.agents import Navigator, StateTracker
 from matrx.agents.agent_utils.state import State
 
-import agents1.BrainStrategy as BrainStrategy
-import agents1.Group42Agent as Group42Agent
+import agents1.Team42Strategy as Team42Strategy
+import agents1.Team42Agent as Team42Agent
 from agents1 import Group42MapState
 
 
-class AgentState:
-    def __init__(self, strategy: BrainStrategy, navigator: Navigator, state_tracker: StateTracker):
-        self.agent: Group42Agent = None
+class Team42AgentState:
+    def __init__(self, strategy: Team42Strategy, navigator: Navigator, state_tracker: StateTracker):
+        self.agent: Team42Agent = None
         self.navigator = navigator
         self.navigator.reset_full()
         self.state_tracker = state_tracker
-        self.strategy: BrainStrategy = strategy
+        self.strategy: Team42Strategy = strategy
 
-    def set_agent(self, agent: Group42Agent):
+    def set_agent(self, agent: Team42Agent):
         self.agent = agent
 
     def process(self, map_state: Group42MapState, state: State):
@@ -49,7 +49,7 @@ class AgentState:
 #     'visited': False
 # }
 
-class WalkingState(AgentState):
+class WalkingState(Team42AgentState):
     def process(self, map_state: Group42MapState, state: State):
         super().process(map_state, state)
 
@@ -80,14 +80,14 @@ class WalkingState(AgentState):
         return self.navigator.get_move_action(self.state_tracker), {}
 
 
-class ExploringRoomState(AgentState):
+class ExploringRoomState(Team42AgentState):
     squares = [(0, -2),
                (-1, -1), (0, -1), (1, -1),
                (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0),
                (-1, 1), (0, 1), (1, 1),
                (0, 2)]
 
-    def __init__(self, strategy: BrainStrategy, navigator: Navigator, state_tracker: StateTracker, room_id):
+    def __init__(self, strategy: Team42Strategy, navigator: Navigator, state_tracker: StateTracker, room_id):
         super().__init__(strategy, navigator, state_tracker)
         self.room_id = room_id
         self.unvisited_squares: Set = None
@@ -162,8 +162,8 @@ class ExploringRoomState(AgentState):
         self.unvisited_squares.difference_update(visible_squares)
 
 
-class DeliveringState(AgentState):
-    def __init__(self, strategy: BrainStrategy, navigator: Navigator, state_tracker: StateTracker):
+class DeliveringState(Team42AgentState):
+    def __init__(self, strategy: Team42Strategy, navigator: Navigator, state_tracker: StateTracker):
         super().__init__(strategy, navigator, state_tracker)
         self.delivering_block = None
 
@@ -200,9 +200,9 @@ class DeliveringState(AgentState):
         return self.navigator.get_move_action(self.state_tracker), {}
 
 
-class RiddingState(AgentState):
-    def __init__(self, strategy: BrainStrategy, navigator: Navigator, state_tracker: StateTracker,
-                 previous_state: AgentState, blocks_to_rid: list):
+class RiddingState(Team42AgentState):
+    def __init__(self, strategy: Team42Strategy, navigator: Navigator, state_tracker: StateTracker,
+                 previous_state: Team42AgentState, blocks_to_rid: list):
         super().__init__(strategy, navigator, state_tracker)
         self.previous_state = previous_state
         self.blocks_to_remove = blocks_to_rid
@@ -215,7 +215,7 @@ class RiddingState(AgentState):
         return self.previous_state.process(map_state, state)
 
 
-class WaitingState(AgentState):
+class WaitingState(Team42AgentState):
     def process(self, map_state: Group42MapState, state: State):
         # TODO maybe do something smart than just standing there...
         super().process(map_state, state)

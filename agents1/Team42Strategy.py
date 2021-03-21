@@ -3,8 +3,8 @@ from typing import Dict
 from matrx.agents import Navigator, StateTracker
 from matrx.agents.agent_utils.state import State
 
-import agents1.AgentState as agst
-import agents1.Group42Agent as Group42Agent
+import agents1.Team42AgentState as agst
+import agents1.Team42Agent as Team42Agent
 from agents1.Group42MapState import MapState
 from agents1.utils import reduce
 
@@ -17,13 +17,13 @@ None (do nothing)
 '''
 
 
-class BrainStrategy:
-    def __init__(self, agent: Group42Agent, slowness):
-        self.agent: Group42Agent = agent
+class Team42Strategy:
+    def __init__(self, agent: Team42Agent, slowness):
+        self.agent: Team42Agent = agent
         self.slowness = slowness
 
     @staticmethod
-    def get_brain_strategy(settings: Dict[str, object], agent: Group42Agent):
+    def get_brain_strategy(settings: Dict[str, object], agent: Team42Agent):
         slowdown = settings['slowdown']
         colorblind = settings['colorblind'] if 'colorblind' in settings else False
         shapeblind = settings['shapeblind'] if 'shapeblind' in settings else False
@@ -52,7 +52,7 @@ class BrainStrategy:
         pass
 
 
-class NormalStrategy(BrainStrategy):
+class NormalStrategy(Team42Strategy):
     def get_matching_blocks_nearby(self, map_state: MapState):
         return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
                                                     blocks=map_state.get_matching_blocks())
@@ -84,7 +84,7 @@ class NormalStrategy(BrainStrategy):
 
 
 
-class ColorBlindStrategy(BrainStrategy):
+class ColorBlindStrategy(Team42Strategy):
     def get_matching_blocks_nearby(self, map_state: MapState):
         return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
                                                     blocks=map_state.get_matching_blocks())
@@ -111,16 +111,16 @@ class ColorBlindStrategy(BrainStrategy):
         return list(filter(None, (b['id'] if b['shape'] not in shapes_to_find else None for b in map_state.carried_blocks.values())))
 
 
-class ShapeBlindStrategy(BrainStrategy):
+class ShapeBlindStrategy(Team42Strategy):
     def get_matching_blocks_nearby(self, map_state: MapState):
         return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
                                                     blocks=map_state.get_matching_blocks())
 
 
-class SlowStrategy(BrainStrategy):
+class SlowStrategy(Team42Strategy):
     pass
 
-class TotallyBlindStrategy(BrainStrategy):
+class TotallyBlindStrategy(Team42Strategy):
     def get_matching_blocks_nearby(self, map_state: MapState):
         # a totally blind agent doesn't see anything, so no blocks will match
         pass

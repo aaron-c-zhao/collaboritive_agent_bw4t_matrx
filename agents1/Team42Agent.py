@@ -4,13 +4,13 @@ from matrx.agents import Navigator, StateTracker
 from matrx.agents.agent_utils.state import State
 from matrx.messages import Message
 
-import agents1.AgentState as agst
-from agents1.BrainStrategy import BrainStrategy
+import agents1.Team42AgentState as agst
+from agents1.Team42Strategy import Team42Strategy
 from agents1.Group42MapState import MapState
 from bw4t.BW4TBrain import BW4TBrain
 
 
-class Group42Agent(BW4TBrain):
+class Team42Agent(BW4TBrain):
     '''
     This agent should be dumb but reliable
     '''
@@ -23,23 +23,23 @@ class Group42Agent(BW4TBrain):
         self.map_state = None
         self.agents = None
         self._door_range = 1
-        self.agent_state: agst.AgentState = None
+        self.agent_state: agst.Team42AgentState = None
         self.holding = []
 
     def initialize(self):
         super().initialize()
-        self.strategy = BrainStrategy.get_brain_strategy(self.settings, self)
+        self.strategy = Team42Strategy.get_brain_strategy(self.settings, self)
         # self.map_state = None
         # self.agents = None
         self._door_range = 1
-        # self.agent_state: AgentState = None
+        # self.agent_state: Team42AgentState = None
         # self.change_state(
         self.change_state(
             self.strategy.initial_state(Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
         #     agst.WalkingState(self.strategy, Navigator(self.agent_id, self.action_set), StateTracker(self.agent_id)))
         # self.holding = []
 
-    def change_state(self, newState: agst.AgentState):
+    def change_state(self, newState: agst.Team42AgentState):
         self.agent_state = newState
         self.agent_state.set_agent(self)
 
