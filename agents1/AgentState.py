@@ -23,6 +23,13 @@ class AgentState:
 
     def process(self, map_state: Group42MapState, state: State):
         self.state_tracker.update(state)
+        # if we notice that all blocks have been found(by us or other people), then we can start delivering
+        if self.strategy.is_all_blocks_found(map_state):
+
+            self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
+            # TODO early transition by returning new_state.process() instead of doing nothing.
+            return None, {}
+
         rid_blocks = self.strategy.check_update(map_state)
         if rid_blocks is not None and len(rid_blocks) > 0:
             self.agent.change_state(RiddingState(self.strategy, self.navigator, self.state_tracker, self, rid_blocks))
@@ -118,11 +125,11 @@ class ExploringRoomState(AgentState):
             self.pending_block = block
             return GrabObject.__name__, {'object_id': block[2]['id']}
 
-        # if full capacity, start delivering
-        # TODO make this smarter by cooperating with other agents
-        if self.agent.is_max_capacity():
-            self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
-            return None, {}
+        # # if full capacity, start delivering
+        # # TODO make this smarter by cooperating with other agents
+        # if self.strategy.is_all_blocks_found:
+        #     self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
+        #     return None, {}
 
         # update the unvisited squares
         self.__update_visited_squares(map_state.get_agent_location())
@@ -159,6 +166,10 @@ class DeliveringState(AgentState):
     def process(self, map_state: Group42MapState, state: State):
         super().process(map_state, state)
 
+        # if we don't have any more blocks, just wait
+        if not self.agent.is_holding_blocks():
+            self.agent.change_state(WaitingState(self.strategy, self.navigator, self.state_tracker))
+
         # if not started to drop a box
         if self.delivering_block is None:
             if self.agent.is_holding_blocks():
@@ -179,10 +190,6 @@ class DeliveringState(AgentState):
         return self.navigator.get_move_action(self.state_tracker), {}
 
 
-# TODO dropoff(when invetory full),
-#  rid_unnecessary_blocks(when other people found goal blocks),
-#  check_goal_blocks(when next to goal state and need to check other people's half known blocks)
-
 class RiddingState(AgentState):
     def __init__(self, strategy: BrainStrategy, navigator: Navigator, state_tracker: StateTracker,
                  previous_state: AgentState, blocks_to_rid: list):
@@ -200,6 +207,7 @@ class RiddingState(AgentState):
 
 class WaitingState(AgentState):
     def process(self, map_state: Group42MapState, state: State):
+        # TODO maybe do something smart than just standing there...
         super().process(map_state, state)
 
         return None, {}

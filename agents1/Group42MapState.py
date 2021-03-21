@@ -43,7 +43,7 @@ class MapState:
             if not is_parsed:
                 ghost_blocks_parsed = self._parse_blocks(ghost_blocks)
             for ghost_block in ghost_blocks_parsed:
-                for drop_spot in self.drop_zone:
+                for drop_spot in self.goal_blocks:
                     if ghost_block['location'] == drop_spot['location']:
                         if ghost_block['colour'] is not None:
                             drop_spot['properties']['colour'] = ghost_block['colour']
@@ -84,6 +84,11 @@ class MapState:
         '''
         res = []
         for block in blocks:
+            # if it's a goal block
+            if not block['is_collectable']:
+                self._update_ghost_block([block], True)
+                return
+            # if it's a normal block
             to_be_updated = self.blocks.pop(block['id'], None)  # check if the block is already in the collection
             updated = False
             if to_be_updated is None:  # add new entry into the collection
@@ -98,13 +103,8 @@ class MapState:
                 to_be_updated['colour'] = block['colour'] if block['colour'] is not None else None
                 to_be_updated['visited'] = self._get_block_status(block, True)
 
-            # if the block discovered is in the drop zone then update the drop_zone
-            for drop_spot in self.drop_zone:
-                if to_be_updated['location'] == drop_spot['location']:
-                    if to_be_updated['is_collectable']:
-                        drop_spot['filled'] = to_be_updated
-                    else:
-                        self._update_ghost_block([to_be_updated], True)
+            self._match_to_dropzones(to_be_updated)
+
             self.blocks[block['id']] = to_be_updated  # only update the blocks when the block is collectable
             if updated is True:
                 res.append(to_be_updated)  # return list of updated blocks
@@ -160,14 +160,15 @@ class MapState:
 
     def _get_drop_zone(self, state):
         drop_zone_objs = state.get_with_property({'is_drop_zone': True})
-        self.drop_zone = list(map(lambda d: {
-            'location': d['location'],
-            'properties': {
-                'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
-                'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None
-            },
-            'filled': None  # block which has been dropped on this spot 
-        }, drop_zone_objs))
+        # self.drop_zone = list(map(lambda d: {
+        #     'location': d['location'],
+        #     'properties': {
+        #         'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
+        #         'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None
+        #     },
+        #     'filled': None  # block which has been dropped on this spot
+        # }, drop_zone_objs))
+        # self.drop_zone.reverse()
 
         # send to other agents about what we know of the drop_zones
         self._queue_message('BlockFound', list(map(lambda d: {
@@ -178,20 +179,18 @@ class MapState:
             'is_collectable': False,
         }, drop_zone_objs)))
 
-        # drop_zone_objs.sort(key=lambda d: d['location'][1], reverse=True)
-        # self.goal_blocks = [{
-        #     'priority': i,
-        #     'goal_location': d['location'],
-        #     'found_blocks': [],
-        #     'plausible_blocks': {'colour': [], 'shape': []},
-        #     'properties': {
-        #         'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
-        #         'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None
-        #     },
-        #     'filled': None,  # block which has been dropped on this spot
-        # } for i, d in enumerate(drop_zone_objs)]
-
-        self.drop_zone.reverse()
+        drop_zone_objs.sort(key=lambda d: d['location'][1], reverse=True)
+        self.goal_blocks = [{
+            'priority': i,
+            'location': d['location'],
+            'found_blocks': {},
+            'plausible_blocks': {'colour': {}, 'shape': {}},
+            'properties': {
+                'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
+                'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None
+            },
+            'filled': None,  # block which has been dropped on this spot
+        } for i, d in enumerate(drop_zone_objs)]
 
     def _get_rooms(self, state):
         self.rooms = {}
@@ -213,15 +212,44 @@ class MapState:
         '''
         return a set of wanted colours. if the goal block has been filled, then its colour is ignored.
         '''
-        return set([x['properties']['colour'] for x in self.drop_zone if
+        return set([x['properties']['colour'] for x in self.goal_blocks if
                     x['properties']['colour'] is not None and x['filled'] is None])
 
     def _get_goal_shape_set(self):
         '''
         return a set of wanted shapes, if the goal block has been filled, then its colour is ignored.
         '''
-        return set([x['properties']['shape'] for x in self.drop_zone if
+        return set([x['properties']['shape'] for x in self.goal_blocks if
                     x['properties']['shape'] is not None and x['filled'] is None])
+
+    def _match_to_dropzones(self, block):
+        '''
+        TODO might not need the returns
+        '''
+        for drop_spot in self.goal_blocks:
+            # if the block discovered is in the drop zone then update the drop_zone
+            if block['location'] == drop_spot['location']:
+                drop_spot['filled'] = block
+
+            # otherwise check if this block can be (fully or partially) matched with a goal
+            else:
+                same_shape = block['shape'] == drop_spot['properties']['shape']
+                same_colour = block['colour'] == drop_spot['properties']['colour']
+                if same_shape and same_colour:
+                    drop_spot['found_blocks'][block['id']] = block
+                    # remove this block from the plausible blocks
+                    if same_shape and block['id'] in drop_spot['plausible_blocks']['shape']:
+                        drop_spot['plausible_blocks']['shape'].pop(block['id'])
+                    if same_colour and block['id'] in drop_spot['plausible_blocks']['colour']:
+                        drop_spot['plausible_blocks']['colour'].pop(block['id'])
+                    return 3
+                else:
+                    if same_shape:
+                        drop_spot['plausible_blocks']['shape'][block['id']] = block
+                    if same_colour:
+                        drop_spot['plausible_blocks']['colour'][block['id']] = block
+                return (same_colour << 1) | same_shape
+        return 0
 
     def _get_dist(self, loc1: tuple, loc2: tuple):
         return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
@@ -258,6 +286,7 @@ class MapState:
             if message['type'] == 'BlockFound':
                 # print(self.agent_id, "-- received blockfound message", message)
                 self._update_block(message['blocks'], queue=False)
+
             elif message['type'] == 'PickUp':
                 self.pop_block(message['block'], queue=False)
                 self.blocks_carried_by_agents[message['agentId']].append(message['block'])
@@ -323,7 +352,7 @@ class MapState:
                 res.append(block)
         return res
 
-    def get_matching_blocks(self, color_blind=False, shape_blind=False):
+    def get_matching_blocks(self):
         '''
         @return [{x, y, z}]
             x: drop order
@@ -335,21 +364,24 @@ class MapState:
         res = []
         # convert blindness into visibility (for clarity)
         # 1 for only shape, 2 for only colour, 3 for both
-        filtering_criteria = ((not color_blind) << 1) | (not shape_blind)
+        # filtering_criteria = ((not color_blind) << 1) | (not shape_blind)
         # return early if 0 (totally blind)
-        if filtering_criteria == 0:
-            return
+        # if filtering_criteria == 0:
+        #     return
         blocks = self.blocks.values()
         # check if all goal blocks has been filled or none of them has been discovered
         for block in blocks:
-            # TODO change & back to (block['visited'] != filtering_criteria)
-            if (block['visited'] & filtering_criteria) == 0:
+            # if (block['visited'] & filtering_criteria) == 0:
+            if block['visited'] != 3:
                 continue
-            for i, g_block in enumerate(self.drop_zone):
-                is_matching = (((not color_blind) and g_block['properties']['colour'] is not None and
-                                block['colour'] == g_block['properties']['colour']) << 1 |
-                               ((not shape_blind) and g_block['properties']['shape'] is not None and
-                                block['shape'] == g_block['properties']['shape'])) == filtering_criteria
+            for i, g_block in enumerate(self.goal_blocks):
+                # if this goal has already been found a block, no need to check with it
+                if bool(g_block['found_blocks']):
+                    continue
+                is_matching = g_block['properties']['colour'] is not None and \
+                              block['colour'] == g_block['properties']['colour'] and \
+                              g_block['properties']['shape'] is not None and \
+                              block['shape'] == g_block['properties']['shape']
 
                 if is_matching:
                     res.append([
@@ -359,24 +391,28 @@ class MapState:
                         True if block['id'] in self.carried_blocks.keys() else False
                         # whether the block has been picked up
                     ])
+
         return res
+
 
     def get_mismatched_spots(self):
         '''
         @return the dicts of mismatched drop spots
         '''
         res = []
-        for drop_spot in self.drop_zone:
+        for drop_spot in self.goal_blocks:
             if drop_spot['properties']['shape'] != drop_spot['filled']['shape'] or \
                     drop_spot['properties']['colour'] != drop_spot['filled']['colour']:
                 res.append(drop_spot)
         return res
+
 
     def visit_room(self, room_id):
         '''
         update the visiting status of a room. Should be called by the agent when a room has been traversed.
         '''
         self.rooms[room_id]['visited'] = True
+
 
     def get_agent_location(self, agent_id=None):
         '''
@@ -387,11 +423,13 @@ class MapState:
         else:
             return self.agent_locations[agent_id] if agent_id in self.agent_locations else None
 
+
     def get_room(self, room_id):
         if room_id in self.rooms.keys():
             return self.rooms[room_id]
         else:
             return None
+
 
     def filter_blocks_within_range(self, loc: tuple, blocks=None, rag=2):
         '''
@@ -409,12 +447,24 @@ class MapState:
                 res.append(block)
         return res
 
+
     def pop_block(self, block, queue=True):
         '''
         Remove a block from interal collection. Note, the block must be a SINGLE block.
         '''
         if isinstance(block, str):
             block = self.blocks.get(block)
+
+        # add to goal block's found list
+        for gb in self.goal_blocks:
+            # if this goal block has already been assigned a block, then skip it. This ensures that if there are
+            # multiple goals that have the same block, we won't assign the same block to two of them.
+            if bool(gb['found_blocks']):
+                continue
+            if gb['properties']['shape'] == block['shape'] and gb['properties']['colour'] == block['colour']:
+                gb['found_blocks'][block['id']] = block
+                # once we assign this block to a goal, we cannot assign it to any other ones
+                break
 
         # if it called by ourselves, tell other people and save it into our blocks
         if queue:
@@ -423,14 +473,15 @@ class MapState:
         # otherwise it's a message from other people, so delete from our blocks
         self.blocks.pop(block['id'], None)
 
+
     def drop_block(self, drop_info: dict, queue=True):
         block_id = self.carried_blocks.pop(drop_info['block']['id'], None)
         if queue:
             self._queue_message('Dropped', drop_info)
         if block_id is not None:
-            for drop_spot in self.drop_zone:
+            for drop_spot in self.goal_blocks:
                 if drop_spot['location'] == drop_info['location']:
                     drop_spot['filled'] = drop_info['block']
                     return
-            self.blocks[block_id] = drop_info[
-                'block']  # if the agent drop the block outside of the dropzone, then add the block back to collection
+            # if the agent drop the block outside of the dropzone, then add the block back to collection
+            self.blocks[block_id] = drop_info['block']

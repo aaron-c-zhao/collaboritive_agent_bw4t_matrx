@@ -6,6 +6,7 @@ from matrx.agents.agent_utils.state import State
 import agents1.AgentState as agst
 import agents1.Group42Agent as Group42Agent
 from agents1.Group42MapState import MapState
+from agents1.utils import reduce
 
 '''
 'OpenDoorAction'	'door_range':1, 'object_id':doorId
@@ -34,11 +35,8 @@ class BrainStrategy:
             return ShapeBlindStrategy(agent, slowdown)
         return NormalStrategy(agent, slowdown)
 
-    def get_action(self, map_state: MapState, state: State):
-        # TODO check if all blocks have been found...
-        # if len(list(filter(None, (d['filled'] for d in map_state.drop_zone.values())))) > 0:
-        #
-        pass
+    def is_all_blocks_found(self, map_state: MapState):
+        return reduce(lambda a, b: a + bool(b['found_blocks']), map_state.goal_blocks, 0) == len(map_state.goal_blocks)
 
     def get_matching_blocks_nearby(self, map_state: MapState):
         pass
@@ -55,9 +53,6 @@ class BrainStrategy:
 
 
 class NormalStrategy(BrainStrategy):
-    def get_action(self, map_state: MapState, state: State):
-        pass
-
     def get_matching_blocks_nearby(self, map_state: MapState):
         return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
                                                     blocks=map_state.get_matching_blocks())
@@ -90,13 +85,6 @@ class NormalStrategy(BrainStrategy):
 
 
 class ColorBlindStrategy(BrainStrategy):
-    def get_action(self, map_state: MapState, state: State):
-        pass
-        # possibleActions = {'grab': GrabObject.__name__,
-        #                    'drop': DropObject.__name__,
-        #                    'openDoor': OpenDoorAction.__name__,
-        #                    'closeDoor': CloseDoorAction.__name__}
-
     def get_matching_blocks_nearby(self, map_state: MapState):
         return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
                                                     blocks=map_state.get_matching_blocks(color_blind=True))
@@ -109,7 +97,7 @@ class ColorBlindStrategy(BrainStrategy):
         if len(blocks) == 0:
             return
 
-        target_block_properties = [d['properties'] for d in map_state.drop_zone]
+        target_block_properties = [d['properties'] for d in map_state.goal_blocks]
         shapes = [d['shape'] for d in target_block_properties]
 
         # all fully found blocks
@@ -120,28 +108,21 @@ class ColorBlindStrategy(BrainStrategy):
         shapes_to_find = set(shapes)
 
         # if any of our blocks has a quality which is no longer needed, then the block can be thrown away
-        return filter(None, (b['id'] if b['shape'] not in shapes_to_find else None for b in map_state.carried_blocks.values()))
+        return list(filter(None, (b['id'] if b['shape'] not in shapes_to_find else None for b in map_state.carried_blocks.values())))
 
 
 class ShapeBlindStrategy(BrainStrategy):
-    def get_action(self, map_state: MapState, state: State):
-        pass
-
     def get_matching_blocks_nearby(self, map_state: MapState):
         return map_state.filter_blocks_within_range(loc=map_state.get_agent_location(),
                                                     blocks=map_state.get_matching_blocks(shape_blind=True))
 
 
 class SlowStrategy(BrainStrategy):
-    def get_action(self, map_state: MapState, state: State):
-        pass
-
+    pass
 
 class TotallyBlindStrategy(BrainStrategy):
-    def get_action(self, map_state: MapState, state: State):
-        pass
-
     def get_matching_blocks_nearby(self, map_state: MapState):
+        # a totally blind agent doesn't see anything, so no blocks will match
         pass
 
     def initial_state(self, navigator: Navigator, state_tracker: StateTracker):
