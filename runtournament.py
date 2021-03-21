@@ -7,6 +7,7 @@ from bw4t.statistics import Statistics
 
 from agents1.human import Human
 from agents1.randomagent import RandomAgent
+from agents1.Team42Agent import Team42Agent
 
 
 """
@@ -25,10 +26,10 @@ def checkNoDuplicates(names:list):
 
 if __name__ == "__main__":
     agents = [
-        {'name':'agent1', 'botclass':RandomAgent, 'settings':{'slowdown':1}},
-        {'name':'agent2', 'botclass':RandomAgent, 'settings':{'slowdown':3}},
-        {'name':'patrol1', 'botclass':RandomAgent, 'settings':{'slowdown':1}},
-        {'name':'human1', 'botclass':Human, 'settings':{'slowdown':1}}
+        {'name':'agent1', 'botclass': Team42Agent, 'settings':{'slowdown':1, 'shapeblind': True, 'colourblind': False}},
+        {'name':'agent2', 'botclass': Team42Agent, 'settings':{'slowdown':3}},
+        {'name':'patrol1', 'botclass': Team42Agent, 'settings':{'slowdown':1, 'shapeblind': False, 'colourblind': True}},
+        {'name':'human1', 'botclass': Team42Agent, 'settings':{'slowdown':1, 'shapeblind': True, 'colourblind': True}}
         ]
     teamsize=3
 

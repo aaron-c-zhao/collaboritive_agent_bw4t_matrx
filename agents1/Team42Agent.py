@@ -113,7 +113,6 @@ class Team42Agent(BW4TBrain):
 
     def _handle_message(self, message):
         if type(message) is dict:
-            self.log("handling message " + str(message))
             self.map_state.update_map(message, None)
 
     def _broadcast(self, type, data):
