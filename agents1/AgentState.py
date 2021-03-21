@@ -24,8 +24,7 @@ class AgentState:
     def process(self, map_state: Group42MapState, state: State):
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
-        if self.strategy.is_all_blocks_found(map_state):
-
+        if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, DeliveringState):
             self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
             # TODO early transition by returning new_state.process() instead of doing nothing.
             return None, {}
@@ -172,14 +171,20 @@ class DeliveringState(AgentState):
 
         # if not started to drop a box
         if self.delivering_block is None:
-            if self.agent.is_holding_blocks():
-                self.navigator.reset_full()
-                self.delivering_block = self.agent.get_highest_priority_block()
-                self.navigator.add_waypoint(self.delivering_block[1])
-            else:
-                self.agent.change_state(WalkingState(self.strategy, self.navigator, self.state_tracker))
+            self.navigator.reset_full()
+            self.delivering_block = self.agent.get_highest_priority_block()
+            self.navigator.add_waypoint(self.delivering_block[1])
+            # self.agent.change_state(WalkingState(self.strategy, self.navigator, self.state_tracker))
 
+        # when we have reached the earliest drop_zone we can deliver
         elif self.navigator.is_done:
+            # check if it is our turn to place the block
+            next_goal = map_state.get_next_drop_zone()
+
+            # if our block is not the next to deliver, wait
+            if self.delivering_block[2]['id'] not in next_goal['found_blocks']:
+                return None, {}
+
             self.navigator.reset_full()
             self.agent.drop_block(self.delivering_block)
             drop_block = {'location': self.delivering_block[1], 'block': self.delivering_block[2]}

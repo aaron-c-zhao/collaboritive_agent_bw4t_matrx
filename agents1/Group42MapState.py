@@ -401,7 +401,6 @@ class MapState:
 
         return res
 
-
     def get_mismatched_spots(self):
         '''
         @return the dicts of mismatched drop spots
@@ -413,13 +412,11 @@ class MapState:
                 res.append(drop_spot)
         return res
 
-
     def visit_room(self, room_id):
         '''
         update the visiting status of a room. Should be called by the agent when a room has been traversed.
         '''
         self.rooms[room_id]['visited'] = True
-
 
     def get_agent_location(self, agent_id=None):
         '''
@@ -430,13 +427,18 @@ class MapState:
         else:
             return self.agent_locations[agent_id] if agent_id in self.agent_locations else None
 
-
     def get_room(self, room_id):
         if room_id in self.rooms.keys():
             return self.rooms[room_id]
         else:
             return None
 
+    def get_next_drop_zone(self):
+        for dz in self.goal_blocks:
+            #  if this goal has already been filled, then check the next one
+            if dz['filled'] != None:
+                continue
+            return dz
 
     def filter_blocks_within_range(self, loc: tuple, blocks=None, rag=2):
         '''
@@ -453,7 +455,6 @@ class MapState:
             if self._get_dist(loc, block[2]['location']) <= rag:
                 res.append(block)
         return res
-
 
     def pop_block(self, block, queue=True):
         '''
@@ -479,7 +480,6 @@ class MapState:
             self.carried_blocks[block['id']] = block
         # otherwise it's a message from other people, so delete from our blocks
         self.blocks.pop(block['id'], None)
-
 
     def drop_block(self, drop_info: dict, queue=True):
         block_id = self.carried_blocks.pop(drop_info['block']['id'], None)

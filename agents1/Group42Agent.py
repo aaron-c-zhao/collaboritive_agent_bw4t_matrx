@@ -60,7 +60,6 @@ class Group42Agent(BW4TBrain):
         return len(self.agent_properties['is_carrying']) > 2
 
     def get_highest_priority_block(self):
-        # print(self.agent_properties['is_carrying'][0])
         return self.holding[0]
 
     def filter_bw4t_observations(self, state) -> State:
