@@ -25,13 +25,16 @@ class AgentState:
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
         if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, DeliveringState):
-            self.agent.change_state(DeliveringState(self.strategy, self.navigator, self.state_tracker))
+            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
             # TODO early transition by returning new_state.process() instead of doing nothing.
-            return None, {}
+            return next_state.process(map_state, state)
 
-        rid_blocks = self.strategy.check_update(map_state)
-        if rid_blocks is not None and len(rid_blocks) > 0:
-            self.agent.change_state(RiddingState(self.strategy, self.navigator, self.state_tracker, self, rid_blocks))
+        # TODO what to do if our inventory is full, but not all drop_zones have been found?? like we can hold 3 things,
+        #  but there are 5 blocks total to deliver...
+        # rid_blocks = self.strategy.check_update(map_state)
+        # if rid_blocks is not None and len(rid_blocks) > 0:
+        #     self.agent.change_state(RiddingState(self.strategy, self.navigator, self.state_tracker, self, rid_blocks))
         # raise NotImplementedError("statePlease implement this abstract method")
 
 
@@ -52,8 +55,9 @@ class WalkingState(AgentState):
 
         closest_room_id = map_state.get_closest_unvisited_room(map_state.get_agent_location())
         if closest_room_id is None:
-            self.agent.change_state(WaitingState(self.strategy, self.navigator, self.state_tracker))
-            return None, {}
+            next_state = WaitingState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
+            return next_state.process(map_state, state)
 
         # no current waypoints: find the closest room and go there
         if len(self.navigator.get_all_waypoints()) == 0:
@@ -137,8 +141,9 @@ class ExploringRoomState(AgentState):
         if len(self.unvisited_squares) == 0:
             self.navigator.reset_full()
             map_state.visit_room(self.room_id)
-            self.agent.change_state(WalkingState(self.strategy, self.navigator, self.state_tracker))
-            return None, {}
+            next_state = WalkingState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
+            return next_state.process(map_state, state)
 
         # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
@@ -207,7 +212,7 @@ class RiddingState(AgentState):
         if len(self.blocks_to_remove):
             return DropObject.__name__, {'object_id': self.blocks_to_remove.pop()}
         self.agent.change_state(self.previous_state)
-        return None, {}
+        return self.previous_state.process(map_state, state)
 
 
 class WaitingState(AgentState):
