@@ -16,11 +16,14 @@ from bw4t.bw4tlogger import BW4TLogger
 # Human is special classs that requires special matrx creator..
 from agents1.human import Human
 
+r = random.getrandbits(23)
+print(r)
+
 #FIMAL, DO NOT MODIFY
 DEFAULT_WORLDSETTINGS: dict={
     'deadline': 2000, # Ticks after which world terminates anyway 
-    'tick_duration': 0.1, # Set to 0 for fastest possible runs.
-    'random_seed': 1,
+    'tick_duration': 0, # Set to 0 for fastest possible runs.
+    'random_seed': r,
     'verbose': False,
     'matrx_paused':True,
     'run_matrx_api':True, # If you want to allow web connection

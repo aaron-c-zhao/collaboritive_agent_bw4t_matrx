@@ -148,7 +148,8 @@ class ExploringRoomState(Team42AgentState):
         # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
             self.navigator.reset_full()
-            self.navigator.add_waypoint(self.unvisited_squares.pop())
+            # self.navigator.add_waypoint(self.unvisited_squares.pop())
+            self.navigator.add_waypoint(next(iter(self.unvisited_squares)))
 
         return self.navigator.get_move_action(self.state_tracker), {}
 
