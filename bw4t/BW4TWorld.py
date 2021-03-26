@@ -18,12 +18,13 @@ from agents1.human import Human
 
 r = random.getrandbits(23)
 print(r)
+r = 5399595
 
 #FIMAL, DO NOT MODIFY
 DEFAULT_WORLDSETTINGS: dict={
     'deadline': 2000, # Ticks after which world terminates anyway 
-    'tick_duration': 0, # Set to 0 for fastest possible runs.
-    'random_seed': r,
+    'tick_duration': 0.1, # Set to 0 for fastest possible runs.
+    'random_seed': 1,
     'verbose': False,
     'matrx_paused':True,
     'run_matrx_api':True, # If you want to allow web connection
