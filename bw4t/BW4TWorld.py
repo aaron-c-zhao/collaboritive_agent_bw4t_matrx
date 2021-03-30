@@ -16,6 +16,10 @@ from bw4t.bw4tlogger import BW4TLogger
 # Human is special classs that requires special matrx creator..
 from agents1.human import Human
 
+r = random.getrandbits(23)
+print(r)
+r = 5399595
+
 #FIMAL, DO NOT MODIFY
 DEFAULT_WORLDSETTINGS: dict={
     'deadline': 2000, # Ticks after which world terminates anyway 
