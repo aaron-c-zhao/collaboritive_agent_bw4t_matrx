@@ -50,6 +50,12 @@ class Team42Strategy:
     def check_update(self, map_state: MapState):
         # match_blocks(b1, b2)
         pass
+    
+    def get_next_room(self, map_state: MapState):
+        return map_state.get_closest_unvisited_room(map_state.get_agent_location())
+
+    def stand_by(self, map_state: MapState):
+        pass
 
 
 class NormalStrategy(Team42Strategy):
@@ -81,7 +87,16 @@ class NormalStrategy(Team42Strategy):
         # colors = set(colors)
         #
         # unnecessary_blocks = [map_state.carried_blocks]
-
+    def get_next_room(self, map_state: MapState):
+        if map_state.tick_count < 3:
+            map_state.init_countdown(3)
+            return None
+        else:
+            return map_state.get_closest_unvisited_room(map_state.get_agent_location())
+    
+    def stand_by(self, map_state: MapState):
+        return map_state.countdown()
+        
 
 
 class ColorBlindStrategy(Team42Strategy):

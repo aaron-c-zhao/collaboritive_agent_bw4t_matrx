@@ -53,7 +53,7 @@ class WalkingState(Team42AgentState):
     def process(self, map_state: Team42MapState, state: State):
         super().process(map_state, state)
 
-        closest_room_id = map_state.get_closest_unvisited_room(map_state.get_agent_location())
+        closest_room_id = self.strategy.get_next_room(map_state) 
         if closest_room_id is None:
             next_state = WaitingState(self.strategy, self.navigator, self.state_tracker)
             self.agent.change_state(next_state)
@@ -115,6 +115,13 @@ class ExploringRoomState(Team42AgentState):
 
         # check if any of the blocks match the goal blocks
         matching_blocks = self.strategy.get_matching_blocks_nearby(map_state)
+
+        if map_state.are_nearby_blocks_visited():
+            map_state.visit_room(self.room_id)
+            next_state = WalkingState(self.strategy, self.navigator, self.state_tracker)
+            print('visited-------------------------------------------------------')
+            return next_state.process(map_state, state)
+        
         for block in filter(lambda b: not b[3], matching_blocks):
             # if we're too far away, temporarily set new destination to get closer to the block and pick it up
             # TODO extract hardcoded distance
@@ -221,6 +228,7 @@ class RiddingState(Team42AgentState):
 class WaitingState(Team42AgentState):
     def process(self, map_state: Team42MapState, state: State):
         # TODO maybe do something smart than just standing there...
-        super().process(map_state, state)
-
+        if self.strategy.stand_by(map_state):
+            next_state = WalkingState(self.strategy, self.navigator, self.state_tracker)
+            return next_state.process(map_state, state)
         return None, {}

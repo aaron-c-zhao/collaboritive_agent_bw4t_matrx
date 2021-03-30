@@ -2,6 +2,7 @@ import operator
 
 import matrx.utils
 from matrx.messages import Message
+from agents1.Team42Utils import more_than
 
 
 class MapState:
@@ -36,6 +37,7 @@ class MapState:
         self.agent_locations = {}
         self._get_drop_zone(state) # retrive the information about drop zone
         self._get_rooms(state) # retrive the map information
+        self.tick_count = 0 # counts the ticks
 
         for agent_id in state['World']['team_members']:
             self.blocks_carried_by_agents[agent_id] = []
@@ -282,12 +284,14 @@ class MapState:
         Depending on the type attribute of message, this function react differently.
         '''
         if state is not None:
+            self.tick_count = self.tick_count + 1
             # update block info according to agent's own discovery
             blocks = state.get_with_property({'is_collectable': True})
             if blocks is not None:
                 self.visible_blocks = self._parse_blocks(blocks)
-
                 self._update_block(self.visible_blocks)
+            else:
+                self.visible_blocks = []
 
             # update drop zone information if ghost block found
             ghost_blocks = state.get_with_property({'is_goal_block': True})
@@ -500,3 +504,22 @@ class MapState:
                     return
             # if the agent drop the block outside of the dropzone, then add the block back to collection
             self.blocks[block_id] = drop_info['block']
+
+
+    def are_nearby_blocks_visited(self):
+        res = True
+        if len(self.visible_blocks) == 0:
+            return False
+        for block in self.visible_blocks:
+            res = res and (block['visited'] == 3)
+        return res
+
+    def init_countdown(self, count):
+        self.count = count
+    
+    def countdown(self):
+        if self.count > 0:
+            self.count = self.count - 1
+            return False
+        else:
+            return True
