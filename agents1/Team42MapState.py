@@ -350,16 +350,26 @@ class MapState:
         if message is not None:
             
             if message['type'] == 'BlockFound':
-                print(self.agent_id, "-- received blockfound message", message)
+                print(self.agent_id, "handling blockfound message", message)
                 self._update_block(self._parse_blocks(message['data']['blocks']), queue=False)
 
             elif message['type'] == 'PickUp':
-                print("not handling message pickup", message)
-            #     self.pop_block(message['block'], queue=False)
-            #     self.blocks_carried_by_agents[message['agentId']].append(message['block'])
+                print("handling message pickup", message)
+
+                block = self.blocks.get(message['data']['obj_id'])
+                self.pop_block(block, queue=False)
+                self.blocks_carried_by_agents[message['agentId']].append(block)
 
             elif message['type'] == 'Dropped':
                 print("not handling message drop", message)
+
+                drop_info = {
+                    'block': {
+                        'id': message['data']['obj_id']
+                    }
+                    'location': message['data']['location']
+                }
+
             #     self.drop_block(message['drop_info'], queue=False)
             #     self.blocks_carried_by_agents[message['agentId']].remove(message['drop_info']['block'])
 
@@ -516,6 +526,8 @@ class MapState:
         return res
 
     def pop_block(self, block, queue=True):
+        print('pop_block called with ', block)
+        print("self.blocks: ", self.blocks)
         '''
         Remove a block from interal collection. Note, the block must be a SINGLE block.
         '''

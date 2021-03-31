@@ -18,7 +18,7 @@ if __name__ == "__main__":
         # {'name': 'group42agent-color_blind', 'botclass': Team42Agent,
         #  'settings': {'slowdown': 1, 'colorblind': True, 'shapeblind': False}},
         {'name': 'group42agent-shape_blind', 'botclass': Team42Agent,
-         'settings': {'slowdown': 1, 'colorblind': False, 'shapeblind': True}},
+         'settings': {'slowdown': 30, 'colorblind': False, 'shapeblind': True}},
         # {'name': 'group42agent-totally_blind', 'botclass': Team42Agent,
         #  'settings': {'slowdown': 1, 'colorblind': True, 'shapeblind': True}}
     ]
