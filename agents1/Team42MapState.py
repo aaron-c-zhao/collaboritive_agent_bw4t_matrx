@@ -154,7 +154,7 @@ class MapState:
         content = {}
         if type == 'BlockFound':    
             content = {
-                'agentId': self.agent_id,
+                'agent_id': self.agent_id,
                 'type': type,
                 'data': {
                     'blocks': data # data is dict of blocks in message format
@@ -162,7 +162,7 @@ class MapState:
             }
         elif type == 'PickUp':
             content = {
-                'agentId': self.agent_id,
+                'agent_id': self.agent_id,
                 'type': type,
                 'data': {
                     'obj_id': data['id'] # data is block
@@ -170,7 +170,7 @@ class MapState:
             }
         elif type == 'Dropped':
             content = {
-                'agentId': self.agent_id,
+                'agent_id': self.agent_id,
                 'type': type,
                 'data': {
                     'obj_id' : data['block']['id'], # data is block_info
@@ -358,7 +358,7 @@ class MapState:
 
                 block = self.blocks.get(message['data']['obj_id'])
                 self.pop_block(block, queue=False)
-                self.blocks_carried_by_agents[message['agentId']].append(block)
+                self.blocks_carried_by_agents[message['agent_id']].append(block)
 
                 
 
@@ -374,9 +374,9 @@ class MapState:
                 block = self.blocks.get(message['data']['obj_id'])
 
                 self.drop_block(drop_info, queue=False)
-                for block in self.blocks_carried_by_agents[message['agentId']]:
+                for block in self.blocks_carried_by_agents[message['agent_id']]:
                     if block['id'] == message['data']['obj_id']:
-                        self.blocks_carried_by_agents[message['agentId']].remove(block)
+                        self.blocks_carried_by_agents[message['agent_id']].remove(block)
 
                 
                 
