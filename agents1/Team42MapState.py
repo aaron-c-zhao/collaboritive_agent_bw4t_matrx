@@ -121,7 +121,7 @@ class MapState:
                 # if the block discovered is in the drop zone then update the drop_zone
                 if to_be_updated['location'] == drop_spot['location']:
                     if to_be_updated['is_collectable']:
-                        drop_spot['filled'] = to_be_updated
+                        drop_spot['filled'] = to_be_updated['id']
                     else:
                         self._update_ghost_block([to_be_updated], True)
 
@@ -274,7 +274,7 @@ class MapState:
         for drop_spot in self.goal_blocks:
             # if the block discovered is in the drop zone then update the drop_zone
             if block['location'] == drop_spot['location']:
-                drop_spot['filled'] = block
+                drop_spot['filled'] = block['id']
 
             # otherwise check if this block can be (fully or partially) matched with a goal
             else:
@@ -350,28 +350,37 @@ class MapState:
         if message is not None:
             
             if message['type'] == 'BlockFound':
-                print(self.agent_id, "handling blockfound message", message)
+                # print(self.agent_id, "handling blockfound message", message)
                 self._update_block(self._parse_blocks(message['data']['blocks']), queue=False)
 
             elif message['type'] == 'PickUp':
-                print("handling message pickup", message)
+                # print("handling message pickup", message)
 
                 block = self.blocks.get(message['data']['obj_id'])
                 self.pop_block(block, queue=False)
                 self.blocks_carried_by_agents[message['agentId']].append(block)
 
-            elif message['type'] == 'Dropped':
-                print("not handling message drop", message)
+                
 
+            elif message['type'] == 'Dropped':
+                # print("handling message drop", message)
                 drop_info = {
                     'block': {
                         'id': message['data']['obj_id']
-                    }
+                    },
                     'location': message['data']['location']
                 }
 
-            #     self.drop_block(message['drop_info'], queue=False)
-            #     self.blocks_carried_by_agents[message['agentId']].remove(message['drop_info']['block'])
+                block = self.blocks.get(message['data']['obj_id'])
+
+                self.drop_block(drop_info, queue=False)
+                for block in self.blocks_carried_by_agents[message['agentId']]:
+                    if block['id'] == message['data']['obj_id']:
+                        self.blocks_carried_by_agents[message['agentId']].remove(block)
+
+                
+                
+                
 
 
 
@@ -476,8 +485,9 @@ class MapState:
         '''
         res = []
         for drop_spot in self.goal_blocks:
-            if drop_spot['properties']['shape'] != drop_spot['filled']['shape'] or \
-                    drop_spot['properties']['colour'] != drop_spot['filled']['colour']:
+            drop_spot_block = self.blocks.get(drop_spot['filled'])
+            if drop_spot['properties']['shape'] != drop_spot_block['shape'] or \
+                    drop_spot['properties']['colour'] != drop_spot_block['colour']:
                 res.append(drop_spot)
         return res
 
@@ -526,8 +536,6 @@ class MapState:
         return res
 
     def pop_block(self, block, queue=True):
-        print('pop_block called with ', block)
-        print("self.blocks: ", self.blocks)
         '''
         Remove a block from interal collection. Note, the block must be a SINGLE block.
         '''
@@ -559,7 +567,7 @@ class MapState:
         if block_id is not None:
             for drop_spot in self.goal_blocks:
                 if drop_spot['location'] == drop_info['location']:
-                    drop_spot['filled'] = drop_info['block']
+                    drop_spot['filled'] = drop_info['block']['id']
                     return
             # if the agent drop the block outside of the dropzone, then add the block back to collection
             self.blocks[block_id] = drop_info['block']
