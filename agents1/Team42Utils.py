@@ -15,3 +15,10 @@ def reduce(function, iterable, initializer=None):
     for element in it:
         value = function(value, element)
     return value
+
+def more_than(block1, block2):
+    if block2['shape'] is None and block1['shape'] is not None:
+        return True
+    if block2['colour'] is None and block1['colour'] is not None:
+        return True
+    return False

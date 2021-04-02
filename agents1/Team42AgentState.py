@@ -8,6 +8,7 @@ from matrx.agents.agent_utils.state import State
 import agents1.Team42Strategy as Team42Strategy
 import agents1.Team42Agent as Team42Agent
 from agents1 import Team42MapState
+import random
 
 
 class Team42AgentState:
@@ -24,6 +25,7 @@ class Team42AgentState:
     def process(self, map_state: Team42MapState, state: State):
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
+        # TODO: will the agent go to and pick up blocks that found by other agents and had not been picked up?
         if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, (DeliveringState, WaitingState)):
             next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
             self.agent.change_state(next_state)
@@ -53,7 +55,7 @@ class WalkingState(Team42AgentState):
     def process(self, map_state: Team42MapState, state: State):
         super().process(map_state, state)
 
-        closest_room_id = map_state.get_closest_unvisited_room(map_state.get_agent_location())
+        closest_room_id = self.strategy.get_next_room(map_state) 
         if closest_room_id is None:
             next_state = WaitingState(self.strategy, self.navigator, self.state_tracker)
             self.agent.change_state(next_state)
@@ -115,6 +117,28 @@ class ExploringRoomState(Team42AgentState):
 
         # check if any of the blocks match the goal blocks
         matching_blocks = self.strategy.get_matching_blocks_nearby(map_state)
+
+        # check if the blocks in the room has been visited if so change traverse strategy
+        if map_state.are_nearby_blocks_visited():
+            map_state.visit_room(self.room_id)
+            nearby_agents = map_state.get_nearby_agent(state)
+            ability = map_state.agent_ability
+            def switch_traverse_order(self):
+                next_state = WalkingState(self.strategy, self.navigator, self.state_tracker)
+                next_state.strategy.switch_traverse_order()
+                self.agent.change_state(next_state)
+                return next_state.process(map_state, state)
+
+            if len(nearby_agents) == 0:
+                return switch_traverse_order(self)
+            else: 
+                num_agents_same_ability = sum([1 for i in nearby_agents if i['ability'] == ability])
+                if num_agents_same_ability == 0 and map_state.agent_ability == 3:
+                    return switch_traverse_order(self)
+                seed = random.seed(map_state.agent_id, version=2)
+                if num_agents_same_ability != 0 and random.randint(1, 10) > (10 / num_agents_same_ability):
+                    return switch_traverse_order(self)
+        
         for block in filter(lambda b: not b[3], matching_blocks):
             # if we're too far away, temporarily set new destination to get closer to the block and pick it up
             # TODO extract hardcoded distance
@@ -221,6 +245,4 @@ class RiddingState(Team42AgentState):
 class WaitingState(Team42AgentState):
     def process(self, map_state: Team42MapState, state: State):
         # TODO maybe do something smart than just standing there...
-        super().process(map_state, state)
-
         return None, {}
