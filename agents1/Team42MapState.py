@@ -290,7 +290,7 @@ class MapState:
                 parsed_blocks_to_send = self._update_block(self.visible_blocks)
 
                 # match parsed with unparsed blocks, queue unparsed
-                if parsed_blocks_to_send != None:
+                if parsed_blocks_to_send is not None:
                     to_send = []
                     for raw_block in blocks:
                         if self.contains_block(raw_block, parsed_blocks_to_send):
@@ -316,7 +316,7 @@ class MapState:
                             self.team_members[message['agent_id']]['ability'] = self._get_block_status(block, True)
 
             elif message['type'] == 'PickUp':
-                print(self.agent_id, "-- received blockfound message", message)
+                print(self.agent_id, "-- received pickup message", message)
                 block = self.blocks.get(message['data']['obj_id'])
                 self.pop_block(block, queue=False)
                 self.team_members[message['agent_id']]['carried_blocks'].append(block)

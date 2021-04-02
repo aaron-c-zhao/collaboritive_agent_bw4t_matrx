@@ -26,8 +26,8 @@ class Team42AgentState:
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
         # TODO: will the agent go to and pick up blocks that found by other agents and had not been picked up?
-        if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, (
-                DeliveringState, WaitingState, ReorderingState, MovingToState)):
+        if not isinstance(self, (DeliveringState, WaitingState, ReorderingState, MovingToState)) \
+                and self.strategy.is_all_blocks_found(map_state):
             next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
             self.agent.change_state(next_state)
             return next_state.process(map_state, state)
@@ -291,13 +291,11 @@ class ReorderingState(Team42AgentState):
 
         # pickup all blocks and redeliver them
         if self.remaining is None:
-            self.remaining = [goal_block for goal_block in map_state.goal_blocks if goal_block['filled'] is not None]
+            self.remaining = [goal_block.copy() for goal_block in map_state.goal_blocks if goal_block['filled'] is not None]
             self.remaining.sort(key=lambda goal_block:
             utils.get_distance(map_state.get_agent_location(), goal_block['location']))
-            next_state = MovingToState(self.strategy, self.navigator, self.state_tracker, self,
-                                       self.remaining[0]['location'])
-            self.agent.change_state(next_state)
-            return next_state.process(map_state, state)
+            for i, goal_block in enumerate(self.remaining):
+                self.remaining[i]['filled'] = map_state.blocks.get(goal_block['filled'])
 
         # pickup all blocks
         while len(self.remaining) > 0:
@@ -306,8 +304,9 @@ class ReorderingState(Team42AgentState):
             # if we're too far away, temporarily set new destination to get closer to the block and pick it up
             # TODO extract hardcoded distance
             if utils.get_distance(map_state.get_agent_location(), goal_block['location']) > 1:
-                self.navigator.reset_full()
-                self.navigator.add_waypoint(goal_block['location'])
+                if len(self.navigator.get_all_waypoints()) == 0 or self.navigator.is_done:
+                    self.navigator.reset_full()
+                    self.navigator.add_waypoint(goal_block['location'])
                 return self.navigator.get_move_action(self.state_tracker), {}
 
             # otherwise grab this block
