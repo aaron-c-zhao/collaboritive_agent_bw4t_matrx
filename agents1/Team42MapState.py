@@ -316,7 +316,7 @@ class MapState:
                             self.team_members[message['agent_id']]['ability'] = self._get_block_status(block, True)
 
             elif message['type'] == 'PickUp':
-                print(self.agent_id, "-- received blockfound message", message)
+                # print(self.agent_id, "-- received blockfound message", message)
                 block = self.blocks.get(message['data']['obj_id'])
                 self.pop_block(block, queue=False)
                 self.team_members[message['agent_id']]['carried_blocks'].append(block)
