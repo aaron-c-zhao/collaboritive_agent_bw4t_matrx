@@ -415,6 +415,8 @@ class MapState:
         '''
         res = []
         for drop_spot in self.goal_blocks:
+            if drop_spot['filled'] is None:
+                return []
             if drop_spot['properties']['shape'] != drop_spot['filled']['shape'] or \
                     drop_spot['properties']['colour'] != drop_spot['filled']['colour']:
                 res.append(drop_spot)
@@ -475,6 +477,9 @@ class MapState:
         for gb in self.goal_blocks:
             # if this goal block has already been assigned a block, then skip it. This ensures that if there are
             # multiple goals that have the same block, we won't assign the same block to two of them.
+            if gb['filled'] is not None and gb['filled']['id'] == block['id']:
+                gb['filled'] = None
+                break
             if bool(gb['found_blocks']):
                 continue
             if gb['properties']['shape'] == block['shape'] and gb['properties']['colour'] == block['colour']:
