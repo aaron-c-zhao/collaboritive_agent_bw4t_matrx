@@ -180,7 +180,7 @@ class MapState:
                 'type': type,
                 'data': {
                     'obj_id' : data['block']['id'], # data is block_info
-                    'location' : data['block']['location'] 
+                    'location' : data['location'] 
                 }
             }
 
@@ -490,7 +490,7 @@ class MapState:
         '''
         Remove a block from interal collection. Note, the block must be a SINGLE block.
         '''
-        print(self.blocks)
+        # print(self.blocks)
         if isinstance(block, str):
             block = self.blocks.get(block)
         # add to goal block's found list
