@@ -123,7 +123,7 @@ class MapState:
                 # if the block discovered is in the drop zone then update the drop_zone
                 if to_be_updated['location'] == drop_spot['location']:
                     if to_be_updated['is_collectable']:
-                        drop_spot['filled'] = to_be_updated
+                        drop_spot['filled'] = to_be_updated['id']
                     else:
                         self._update_ghost_block([to_be_updated], True)
 
@@ -133,29 +133,51 @@ class MapState:
 
         # queue a message with all updated blocks
         if len(res) > 0 and queue:
-            self._queue_message('BlockFound', res)
+            return res
+
+    def _blocks_to_message_format(self, blocks): 
+        '''
+        raw blocks to message format
+        '''
+        res = []
+        for raw_block in blocks:
+            message_block = {
+                'is_goal_block': raw_block['is_goal_block'],
+                'is_collectable': raw_block['is_collectable'],
+                'obj_id': raw_block['obj_id'],
+                'location': raw_block['location'],
+                'visualization': raw_block['visualization']
+            }
+            res.append(message_block)
+        return res
 
 
     def _queue_message(self, type, data):
         content = {}
-
-        if type == 'BlockFound':
+        if type == 'BlockFound':    
             content = {
-                'agentId': self.agent_id,
+                'agent_id': self.agent_id,
                 'type': type,
-                'blocks': data
+                'data': {
+                    'blocks': data # data is dict of blocks in message format
+                }
             }
         elif type == 'PickUp':
             content = {
-                'agentId': self.agent_id,
+                'agent_id': self.agent_id,
                 'type': type,
-                'block': data
+                'data': {
+                    'obj_id': data['id'] # data is block
+                }
             }
         elif type == 'Dropped':
             content = {
-                'agentId': self.agent_id,
+                'agent_id': self.agent_id,
                 'type': type,
-                'drop_info': data
+                'data': {
+                    'obj_id' : data['block']['id'], # data is block_info
+                    'location' : data['block']['location'] 
+                }
             }
 
         # add nessage to queue
@@ -172,7 +194,6 @@ class MapState:
             parsed_blocks.append({
                 'id': block['obj_id'],
                 'location': block['location'],
-                'room': self._extract_room(block['name']),
                 'shape': block['visualization']['shape'] if 'shape' in block['visualization'].keys() else None,
                 'colour': block['visualization']['colour'] if 'colour' in block['visualization'].keys() else None,
                 'is_collectable': block['is_collectable'],
@@ -180,17 +201,27 @@ class MapState:
             })
         return parsed_blocks
 
+    def _parse_blocks_message(self, blocks):
+        '''
+        Parse the blocks from the agent's received by messaging
+        '''
+        parsed_blocks = []
+        for block in blocks:
+            parsed_blocks.append({
+                'id': block['obj_id'],
+                'location': block['location'],
+                'room': self._extract_room(block['name']),
+                'shape': block['visualization']['shape'] if 'shape' in block['visualization'].keys() else None,
+                'colour': block['visualization']['colour'] if 'colour' in block['visualization'].keys() else None,
+                'is_collectable': block['is_collectable'],
+            })
+        return parsed_blocks
+
     def _get_drop_zone(self, state):
         goal_blocks = state.get_with_property({'is_goal_block': True})
 
         # send to other agents about what we know of the drop_zones
-        self._queue_message('BlockFound', list(map(lambda d: {
-            'id': d['obj_id'],
-            'location': d['location'],
-            'shape': d['visualization']['shape'] if 'shape' in d['visualization'] else None,
-            'colour': d['visualization']['colour'] if 'colour' in d['visualization'] else None,
-            'is_collectable': False,
-        }, goal_blocks)))
+        self._queue_message('BlockFound', self._blocks_to_message_format(goal_blocks))
 
         goal_blocks.sort(key=lambda d: d['location'][1], reverse=True)
         self.goal_blocks = [{
@@ -245,7 +276,7 @@ class MapState:
         for drop_spot in self.goal_blocks:
             # if the block discovered is in the drop zone then update the drop_zone
             if block['location'] == drop_spot['location']:
-                drop_spot['filled'] = block
+                drop_spot['filled'] = block['id']
 
             # otherwise check if this block can be (fully or partially) matched with a goal
             else:
@@ -277,6 +308,12 @@ class MapState:
     #                                         public methods                                        #
     #################################################################################################
 
+    def contains_block(self, block, parsed_blocks: dict):
+        for parsed_block in parsed_blocks:
+            if parsed_block['id'] == block['obj_id']:
+                return True
+        return False
+    
     def update_map(self, message: dict, state):
         '''
         update the internal state of the agent. The information could from the agent's
@@ -290,8 +327,21 @@ class MapState:
             if blocks is not None:
                 self.visible_blocks = self._parse_blocks(blocks)
                 self._update_block(self.visible_blocks)
+
+                # parsed variant of blocks to communicate
+                parsed_blocks_to_send = self._update_block(self.visible_blocks)
+                
+                # match parsed with unparsed blocks, queue unparsed
+                if parsed_blocks_to_send != None:
+                    to_send = []
+                    for raw_block in blocks:
+                        if self.contains_block(raw_block, parsed_blocks_to_send):
+                            to_send.append(raw_block)
+                    self._queue_message('BlockFound', self._blocks_to_message_format(to_send))
             else:
                 self.visible_blocks = []
+
+
 
             # update drop zone information if ghost block found
             ghost_blocks = state.get_with_property({'is_goal_block': True})
@@ -304,17 +354,39 @@ class MapState:
             #     self.agent_locations[agent['obj_id']] = agent['location']
 
         if message is not None:
+            
             if message['type'] == 'BlockFound':
-                # print(self.agent_id, "-- received blockfound message", message)
-                self._update_block(message['blocks'], queue=False)
+                # print(self.agent_id, "handling blockfound message", message)
+                self._update_block(self._parse_blocks(message['data']['blocks']), queue=False)
 
             elif message['type'] == 'PickUp':
-                self.pop_block(message['block'], queue=False)
-                self.blocks_carried_by_agents[message['agentId']].append(message['block'])
+                # print("handling message pickup", message)
+
+                block = self.blocks.get(message['data']['obj_id'])
+                self.pop_block(block, queue=False)
+                self.blocks_carried_by_agents[message['agent_id']].append(block)
+
+                
 
             elif message['type'] == 'Dropped':
-                self.drop_block(message['drop_info'], queue=False)
-                self.blocks_carried_by_agents[message['agentId']].remove(message['drop_info']['block'])
+                # print("handling message drop", message)
+                drop_info = {
+                    'block': {
+                        'id': message['data']['obj_id']
+                    },
+                    'location': message['data']['location']
+                }
+
+                block = self.blocks.get(message['data']['obj_id'])
+
+                self.drop_block(drop_info, queue=False)
+                for block in self.blocks_carried_by_agents[message['agent_id']]:
+                    if block['id'] == message['data']['obj_id']:
+                        self.blocks_carried_by_agents[message['agent_id']].remove(block)
+
+                
+                
+                
 
 
 
@@ -419,8 +491,9 @@ class MapState:
         '''
         res = []
         for drop_spot in self.goal_blocks:
-            if drop_spot['properties']['shape'] != drop_spot['filled']['shape'] or \
-                    drop_spot['properties']['colour'] != drop_spot['filled']['colour']:
+            drop_spot_block = self.blocks.get(drop_spot['filled'])
+            if drop_spot['properties']['shape'] != drop_spot_block['shape'] or \
+                    drop_spot['properties']['colour'] != drop_spot_block['colour']:
                 res.append(drop_spot)
         return res
 
@@ -500,7 +573,7 @@ class MapState:
         if block_id is not None:
             for drop_spot in self.goal_blocks:
                 if drop_spot['location'] == drop_info['location']:
-                    drop_spot['filled'] = drop_info['block']
+                    drop_spot['filled'] = drop_info['block']['id']
                     return
             # if the agent drop the block outside of the dropzone, then add the block back to collection
             self.blocks[block_id] = drop_info['block']

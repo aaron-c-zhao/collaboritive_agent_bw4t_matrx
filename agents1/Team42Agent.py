@@ -73,7 +73,7 @@ class Team42Agent(BW4TBrain):
         # handle messages
         # self.log("received: " + str(len(self.received_messages)) + " messages")
         for message in self.received_messages:
-            if message['agentId'] != self.map_state.agent_id:
+            if message['agent_id'] != self.map_state.agent_id:
                 self._handle_message(message)
 
         self.received_messages.clear()
@@ -117,7 +117,7 @@ class Team42Agent(BW4TBrain):
 
     def _broadcast(self, type, data):
         content = {
-            'agentId': self.agent_id,
+            'agent_id': self.agent_id,
             'type': type,
             'blocks': data
         }
