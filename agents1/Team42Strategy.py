@@ -21,6 +21,7 @@ class Team42Strategy:
     def __init__(self, agent: Team42Agent, slowness):
         self.agent: Team42Agent = agent
         self.slowness = slowness
+        self.traverse_order = 1 # magic number here: 0 for x first, 1 for y first
 
     @staticmethod
     def get_brain_strategy(settings: Dict[str, object], agent: Team42Agent):
@@ -52,11 +53,10 @@ class Team42Strategy:
         pass
     
     def get_next_room(self, map_state: MapState):
-        return map_state.get_closest_unvisited_room(map_state.get_agent_location())
+        return map_state.get_closest_unvisited_room(map_state.get_agent_location(), self.traverse_order)
 
-    def stand_by(self, map_state: MapState):
-        pass
-
+    def switch_traverse_order(self):
+        self.traverse_order = 0 if self.traverse_order == 1 else 1
 
 class NormalStrategy(Team42Strategy):
     def get_matching_blocks_nearby(self, map_state: MapState):
@@ -65,38 +65,6 @@ class NormalStrategy(Team42Strategy):
 
     def check_update(self, map_state: MapState):
         return None
-        # if len(map_state.carried_blocks) == 0:
-        #     return
-        #
-        # blocks = list([block for agent in map_state.blocks_carried_by_agents.values() for block in agent])
-        # if len(blocks) == 0:
-        #     return
-        #
-        # target_block_properties = [d['properties'] for d in map_state.drop_zone]
-        # shapes = [d['shape'] for d in target_block_properties]
-        # colors = [d['colour'] for d in target_block_properties]
-        #
-        # # all fully found blocks
-        # for block in list(filter(lambda b: b['visited'] == 3, blocks)):
-        #     if block['shape'] in shapes:
-        #         shapes.pop(block['shape'])
-        #     if block['colour'] in colors:
-        #         colors.remove(block['colour'])
-        #
-        # shapes = set(shapes)
-        # colors = set(colors)
-        #
-        # unnecessary_blocks = [map_state.carried_blocks]
-    def get_next_room(self, map_state: MapState):
-        if map_state.tick_count < 3:
-            map_state.init_countdown(3)
-            return None
-        else:
-            return map_state.get_closest_unvisited_room(map_state.get_agent_location())
-    
-    def stand_by(self, map_state: MapState):
-        return map_state.countdown()
-        
 
 
 class ColorBlindStrategy(Team42Strategy):
