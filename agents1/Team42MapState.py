@@ -2,7 +2,6 @@ import operator
 
 import matrx.utils
 from matrx.messages import Message
-from agents1.Team42Utils import more_than
 
 
 class MapState:
@@ -29,15 +28,15 @@ class MapState:
         }
 
         '''
-        self.message_queue = [] # message to be sent
-        self.agent_id = state.get_self()['obj_id'] # id of the agent
-        self.blocks = {} # all the blocks that has been discovered by the agents exclude the ones that is carried by agents. 
-        self.carried_blocks = {} # the blocks that have been confiremed carried by the agent
+        self.message_queue = []  # message to be sent
+        self.agent_id = state.get_self()['obj_id']  # id of the agent
+        self.blocks = {}  # all the blocks that has been discovered by the agents exclude the ones that is carried by agents.
+        self.carried_blocks = {}  # the blocks that have been confiremed carried by the agent
         self.team_members = {}
         self.agent_location = None
-        self._get_drop_zone(state) # retrive the information about drop zone
-        self._get_rooms(state) # retrive the map information
-        self.received_blocks = {} 
+        self._get_drop_zone(state)  # retrive the information about drop zone
+        self._get_rooms(state)  # retrive the map information
+        self.received_blocks = {}
         self.agent_ability = None
 
         for agent_id in state['World']['team_members']:
@@ -78,20 +77,13 @@ class MapState:
         only has colour = 2
         visited = 3
         '''
-        visited = 0
-        has_shape = False
-        has_color = False
-        if is_parsed:
-            has_shape = block['shape'] is not None
-            has_color = block['colour'] is not None
-        else:
-            has_shape = True if 'shape' in block['visualization'].keys() else False
-            has_color = True if 'colour' in block['visualization'].keys() else False
-        if has_shape:
-            visited |= 1
-        if has_color:
-            visited |= 1 << 1
-        return visited
+        has_shape = (is_parsed and (block['shape'] is not None)) or \
+                    (not is_parsed and 'shape' in block['visualization'].keys())
+
+        has_color = (is_parsed and (block['colour'] is not None)) or \
+                    (not is_parsed and 'colour' in block['visualization'].keys())
+
+        return (has_color << 1) | has_shape
 
     def _update_block(self, blocks):
         '''
@@ -104,7 +96,7 @@ class MapState:
                 self._update_ghost_block([block], True)
                 continue
             # if it's a normal block
-            updated, to_be_updated= self._update_collectable_blocks(self.blocks, block)
+            updated, to_be_updated = self._update_collectable_blocks(self.blocks, block)
 
             for drop_spot in self.goal_blocks:
                 # if the block discovered is in the drop zone then update the drop_zone
@@ -122,7 +114,7 @@ class MapState:
         if len(res) > 0:
             return res
 
-    def _blocks_to_message_format(self, blocks): 
+    def _blocks_to_message_format(self, blocks):
         '''
         raw blocks to message format
         '''
@@ -138,32 +130,33 @@ class MapState:
             res.append(message_block)
         return res
 
-
     def _update_collectable_blocks(self, blocks_container, candidate):
-            to_be_updated = blocks_container.pop(candidate['id'], None)  # check if the block is already in the collection
-            updated = False
-            if to_be_updated is None:  # add new entry into the collection
-                to_be_updated = candidate
+        to_be_updated = blocks_container.pop(candidate['id'], None)  # check if the block is already in the collection
+        updated = False
+        if to_be_updated is None:  # add new entry into the collection
+            to_be_updated = candidate
+            updated = True
+        else:  # update shape, colour and status of the block if the block is in the collection
+            if to_be_updated['location'] != candidate['location']:
+                to_be_updated['location'] = candidate['location']
                 updated = True
-            else:  # update shape, colour and status of the block if the block is in the collection
-                if to_be_updated['location'] != candidate['location']:
-                    to_be_updated['location'] = candidate['location']
-                if candidate['shape'] is not None and to_be_updated['shape'] != candidate['shape']:
-                    to_be_updated['shape'] = candidate['shape'] if candidate['shape'] is not None else None
-                if candidate['colour'] is not None and to_be_updated['colour'] != candidate['colour']:
-                    to_be_updated['colour'] = candidate['colour'] if candidate['colour'] is not None else None
-                to_be_updated['visited'] = self._get_block_status(to_be_updated, True)
-            return updated, to_be_updated
-
+            if candidate['shape'] is not None and to_be_updated['shape'] != candidate['shape']:
+                to_be_updated['shape'] = candidate['shape']
+                updated = True
+            if candidate['colour'] is not None and to_be_updated['colour'] != candidate['colour']:
+                to_be_updated['colour'] = candidate['colour']
+                updated = True
+            to_be_updated['visited'] = self._get_block_status(to_be_updated, True)
+        return updated, to_be_updated
 
     def _queue_message(self, type, data):
         content = {}
-        if type == 'BlockFound':    
+        if type == 'BlockFound':
             content = {
                 'agent_id': self.agent_id,
                 'type': type,
                 'data': {
-                    'blocks': data # data is dict of blocks in message format
+                    'blocks': data  # data is dict of blocks in message format
                 }
             }
         elif type == 'PickUp':
@@ -171,7 +164,7 @@ class MapState:
                 'agent_id': self.agent_id,
                 'type': type,
                 'data': {
-                    'obj_id': data['id'] # data is block
+                    'obj_id': data['id']  # data is block
                 }
             }
         elif type == 'Dropped':
@@ -179,8 +172,8 @@ class MapState:
                 'agent_id': self.agent_id,
                 'type': type,
                 'data': {
-                    'obj_id' : data['block']['id'], # data is block_info
-                    'location' : data['location'] 
+                    'obj_id': data['block']['id'],  # data is block_info
+                    'location': data['location']
                 }
             }
 
@@ -263,7 +256,6 @@ class MapState:
         '''
         return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
 
-    
     #################################################################################################
     #                                         public methods                                        #
     #################################################################################################
@@ -273,7 +265,7 @@ class MapState:
             if parsed_block['id'] == block['obj_id']:
                 return True
         return False
-    
+
     def update_map(self, message: dict, state):
         '''
         update the internal state of the agent. The information could from the agent's
@@ -288,7 +280,7 @@ class MapState:
                 if self.agent_ability is None:
                     self.agent_ability = self._get_block_status(self.visible_blocks[0], True)
                 parsed_blocks_to_send = self._update_block(self.visible_blocks)
-                
+
                 # match parsed with unparsed blocks, queue unparsed
                 if parsed_blocks_to_send != None:
                     to_send = []
@@ -337,7 +329,6 @@ class MapState:
                     if block['id'] == message['data']['obj_id']:
                         self.team_members[message['agent_id']]['carried_blocks'].remove(block)
 
-
     def get_message_queue(self):
         res = self.message_queue.copy()
         self.message_queue.clear()
@@ -364,12 +355,11 @@ class MapState:
         for room in rooms:
             for door in room['doors']:
                 dist.append([room['room_id'],
-                             (abs(loc[traverse_order] - door['location'][traverse_order]), matrx.utils.get_distance(loc, door['location']))])
+                             (abs(loc[traverse_order] - door['location'][traverse_order]),
+                              matrx.utils.get_distance(loc, door['location']))])
         if len(dist) == 0:
             return None
         return min(dist, key=operator.itemgetter(1))[0]
-
-
 
     def get_candidate_blocks_shape(self):
         '''
@@ -383,8 +373,6 @@ class MapState:
                 res.append(block)
         return res
 
-
-
     def get_candidate_blocks_colour(self):
         '''
         @return list of blocks which does not have shape information but have matching shape with one
@@ -396,8 +384,6 @@ class MapState:
             if block['visited'] == 2 and block['shape'] in self._get_goal_shape_set():
                 res.append(block)
         return res
-
-        
 
     def get_matching_blocks(self):
         '''
@@ -425,7 +411,7 @@ class MapState:
                               block['shape'] == g_block['properties']['shape']
                 if is_matching:
                     res.append([
-                        i, # priority(order)
+                        i,  # priority(order)
                         g_block['location'],
                         block,
                         True if block['id'] in self.carried_blocks.keys() else False
@@ -523,17 +509,16 @@ class MapState:
             # if the agent drop the block outside of the dropzone, then add the block back to collection
             self.blocks[block_id] = drop_info['block']
 
-
     def are_nearby_blocks_visited(self):
         if len(self.visible_blocks) == 0 or len(self.received_blocks) == 0:
             return False
         res = True
         for block in self.visible_blocks:
-            received_block = self.received_blocks.pop(block['id'], None) 
+            received_block = self.received_blocks.pop(block['id'], None)
             if received_block is None:
                 return False
             res = res and (received_block['visited'] == 3 or received_block['visited'] == self.agent_ability)
-        return res    
+        return res
 
     def get_nearby_agent(self, state):
         res = []
@@ -542,4 +527,3 @@ class MapState:
             if self._get_dist(self_loc, team_mate['location']) <= 2:
                 res.append(team_mate['obj_id'])
         return list(map(lambda x: self.team_members[x], res))
-        

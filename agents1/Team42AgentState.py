@@ -1,3 +1,4 @@
+import random
 from typing import Set
 
 from matrx import utils
@@ -5,10 +6,9 @@ from matrx.actions import *
 from matrx.agents import Navigator, StateTracker
 from matrx.agents.agent_utils.state import State
 
-import agents1.Team42Strategy as Team42Strategy
 import agents1.Team42Agent as Team42Agent
+import agents1.Team42Strategy as Team42Strategy
 from agents1 import Team42MapState
-import random
 
 
 class Team42AgentState:
@@ -26,11 +26,11 @@ class Team42AgentState:
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
         # TODO: will the agent go to and pick up blocks that found by other agents and had not been picked up?
-        if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, (DeliveringState, WaitingState)):
-            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
-            self.agent.change_state(next_state)
-            # TODO early transition by returning new_state.process() instead of doing nothing.
-            return next_state.process(map_state, state)
+        # if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, (DeliveringState, WaitingState)):
+        #     next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
+        #     self.agent.change_state(next_state)
+        #     # TODO early transition by returning new_state.process() instead of doing nothing.
+        #     return next_state.process(map_state, state)
 
         # TODO what to do if our inventory is full, but not all drop_zones have been found?? like we can hold 3 things,
         #  but there are 5 blocks total to deliver...
@@ -55,7 +55,12 @@ class WalkingState(Team42AgentState):
     def process(self, map_state: Team42MapState, state: State):
         super().process(map_state, state)
 
-        closest_room_id = self.strategy.get_next_room(map_state) 
+        if self.strategy.is_all_blocks_found(map_state):
+            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
+            return next_state.process(map_state, state)
+
+        closest_room_id = self.strategy.get_next_room(map_state)
         # If we've already visited all rooms, then proceed to deliver.
         if closest_room_id is None:
             next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
@@ -107,6 +112,11 @@ class ExploringRoomState(Team42AgentState):
                 map_state.pop_block(self.pending_block[2])
             self.pending_block = None
 
+        if self.strategy.is_all_blocks_found(map_state):
+            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
+            return next_state.process(map_state, state)
+
         room = map_state.get_room(self.room_id)
 
         # if just started exploring the room, then initialise the unvisited squares and go towards one of those squares
@@ -124,6 +134,7 @@ class ExploringRoomState(Team42AgentState):
             map_state.visit_room(self.room_id)
             nearby_agents = map_state.get_nearby_agent(state)
             ability = map_state.agent_ability
+
             def switch_traverse_order(self):
                 next_state = WalkingState(self.strategy, self.navigator, self.state_tracker)
                 next_state.strategy.switch_traverse_order()
@@ -132,14 +143,14 @@ class ExploringRoomState(Team42AgentState):
 
             if len(nearby_agents) == 0:
                 return switch_traverse_order(self)
-            else: 
+            else:
                 num_agents_same_ability = sum([1 for i in nearby_agents if i['ability'] == ability])
                 if num_agents_same_ability == 0 and map_state.agent_ability == 3:
                     return switch_traverse_order(self)
                 seed = random.seed(map_state.agent_id, version=2)
                 if num_agents_same_ability != 0 and random.randint(1, 10) > (10 / num_agents_same_ability):
                     return switch_traverse_order(self)
-        
+
         for block in filter(lambda b: not b[3], matching_blocks):
             # if we're too far away, temporarily set new destination to get closer to the block and pick it up
             # TODO extract hardcoded distance
