@@ -213,6 +213,13 @@ class DeliveringState(Team42AgentState):
             # check if it is our turn to place the block
             next_goal = map_state.get_next_drop_zone()
 
+            # check if the next block to deliver is already delivered
+            if next_goal['priority'] > self.delivering_block[0]:
+                # we don't actually drop this block, but we ignore it within the agent
+                self.agent.drop_block(self.delivering_block)
+                self.delivering_block = None
+                return self.process(map_state, state)
+
             # if our block is not the next to deliver, wait
             if self.delivering_block[2]['id'] not in next_goal['found_blocks']:
                 return None, {}
