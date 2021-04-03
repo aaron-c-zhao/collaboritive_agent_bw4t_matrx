@@ -56,8 +56,9 @@ class WalkingState(Team42AgentState):
         super().process(map_state, state)
 
         closest_room_id = self.strategy.get_next_room(map_state) 
+        # If we've already visited all rooms, then proceed to deliver.
         if closest_room_id is None:
-            next_state = WaitingState(self.strategy, self.navigator, self.state_tracker)
+            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
             self.agent.change_state(next_state)
             return next_state.process(map_state, state)
 
