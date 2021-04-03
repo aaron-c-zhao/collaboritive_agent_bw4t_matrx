@@ -9,7 +9,6 @@ from matrx.agents.agent_utils.state import State
 import agents1.Team42Agent as Team42Agent
 import agents1.Team42Strategy as Team42Strategy
 from agents1.Team42MapState import MapState
-import random
 
 
 class Team42AgentState:
@@ -147,7 +146,7 @@ class ExploringRoomState(Team42AgentState):
                 num_agents_same_ability = sum([1 for i in nearby_agents if i['ability'] == ability])
                 if num_agents_same_ability == 0 and map_state.agent_ability == 3:
                     return switch_traverse_order(self)
-                seed = random.seed(map_state.agent_id, version=2)
+                random.seed(map_state.agent_id, version=2)
                 if num_agents_same_ability != 0 and random.randint(1, 10) > (10 / num_agents_same_ability):
                     return switch_traverse_order(self)
 
@@ -184,7 +183,6 @@ class ExploringRoomState(Team42AgentState):
         # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
             self.navigator.reset_full()
-            # self.navigator.add_waypoint(self.unvisited_squares.pop())
             self.navigator.add_waypoint(next(iter(self.unvisited_squares)))
 
         return self.navigator.get_move_action(self.state_tracker), {}
@@ -225,8 +223,8 @@ class DeliveringState(Team42AgentState):
             # check if it is our turn to place the block
             next_goal = map_state.get_next_drop_zone()
 
-            # for testing
-            # if "normal" not in map_state.agent_id:
+            # for testing reordering
+            # if "normal" not in map_state.agent_id and self.delivering_block[2]['id'] not in next_goal['found_blocks']:
             #     return None, {}
 
             # check if the next block to deliver is already delivered
@@ -311,7 +309,8 @@ class ReorderingState(Team42AgentState):
 
         # pickup all blocks and redeliver them
         if self.remaining is None:
-            self.remaining = [goal_block.copy() for goal_block in map_state.goal_blocks if goal_block['filled'] is not None]
+            self.remaining = [goal_block.copy() for goal_block in map_state.goal_blocks if
+                              goal_block['filled'] is not None]
             self.remaining.sort(key=lambda goal_block:
             utils.get_distance(map_state.get_agent_location(), goal_block['location']))
             for i, goal_block in enumerate(self.remaining):
