@@ -1,3 +1,4 @@
+import random
 from typing import Set
 
 from matrx import utils
@@ -26,11 +27,10 @@ class Team42AgentState:
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
         # TODO: will the agent go to and pick up blocks that found by other agents and had not been picked up?
-        if not isinstance(self, (DeliveringState, WaitingState, ReorderingState, MovingToState)) \
-                and self.strategy.is_all_blocks_found(map_state):
-            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
-            self.agent.change_state(next_state)
-            return next_state.process(map_state, state)
+        # if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, (DeliveringState, WaitingState)):
+        #     next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
+        #     self.agent.change_state(next_state)
+        #     return next_state.process(map_state, state)
 
         # TODO what to do if our inventory is full, but not all drop_zones have been found?? like we can hold 3 things,
         #  but there are 5 blocks total to deliver...
@@ -55,9 +55,15 @@ class WalkingState(Team42AgentState):
     def process(self, map_state: MapState, state: State):
         super().process(map_state, state)
 
+        if self.strategy.is_all_blocks_found(map_state):
+            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
+            return next_state.process(map_state, state)
+
         closest_room_id = self.strategy.get_next_room(map_state)
+        # If we've already visited all rooms, then proceed to deliver.
         if closest_room_id is None:
-            next_state = WaitingState(self.strategy, self.navigator, self.state_tracker)
+            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
             self.agent.change_state(next_state)
             return next_state.process(map_state, state)
 
@@ -106,6 +112,11 @@ class ExploringRoomState(Team42AgentState):
                 map_state.pop_block(self.pending_block[2])
             self.pending_block = None
 
+        if self.strategy.is_all_blocks_found(map_state):
+            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
+            return next_state.process(map_state, state)
+
         room = map_state.get_room(self.room_id)
 
         # if just started exploring the room, then initialise the unvisited squares and go towards one of those squares
@@ -123,6 +134,7 @@ class ExploringRoomState(Team42AgentState):
             map_state.visit_room(self.room_id)
             nearby_agents = map_state.get_nearby_agent(state)
             ability = map_state.agent_ability
+
             def switch_traverse_order(self):
                 next_state = WalkingState(self.strategy, self.navigator, self.state_tracker)
                 next_state.strategy.switch_traverse_order()
@@ -216,6 +228,14 @@ class DeliveringState(Team42AgentState):
             # for testing
             # if "normal" not in map_state.agent_id:
             #     return None, {}
+
+            # check if the next block to deliver is already delivered
+            if next_goal['priority'] > self.delivering_block[0]:
+                # we don't actually drop this block, but we ignore it within the agent
+                self.agent.drop_block(self.delivering_block)
+                self.delivering_block = None
+                return self.process(map_state, state)
+
             # if our block is not the next to deliver, wait
             if self.delivering_block[2]['id'] not in next_goal['found_blocks']:
                 return None, {}

@@ -5,9 +5,8 @@ from matrx.agents.agent_utils.state import State
 from matrx.messages import Message
 
 import agents1.Team42AgentState as agst
-from agents1.Team42Strategy import Team42Strategy
 from agents1.Team42MapState import MapState
-from agents1.Team42Utils import more_than
+from agents1.Team42Strategy import Team42Strategy
 from bw4t.BW4TBrain import BW4TBrain
 
 
@@ -20,8 +19,8 @@ class Team42Agent(BW4TBrain):
         super().__init__(settings)
         # self._moves = [MoveNorth.__name__, MoveEast.__name__, MoveSouth.__name__, MoveWest.__name__]
         self.settings = settings
-        self.strategy = None
-        self.map_state = None
+        self.strategy: Team42Strategy = None
+        self.map_state: MapState = None
         self.agents = None
         self._door_range = 1
         self.agent_state: agst.Team42AgentState = None
@@ -140,5 +139,3 @@ class Team42Agent(BW4TBrain):
 
     def log(self, message):
         print(self.agent_id + ":", message)
-
-   

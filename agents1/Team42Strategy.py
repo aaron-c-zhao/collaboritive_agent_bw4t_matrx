@@ -1,10 +1,9 @@
 from typing import Dict
 
 from matrx.agents import Navigator, StateTracker
-from matrx.agents.agent_utils.state import State
 
-import agents1.Team42AgentState as agst
 import agents1.Team42Agent as Team42Agent
+import agents1.Team42AgentState as agst
 from agents1.Team42MapState import MapState
 from agents1.Team42Utils import reduce
 
@@ -21,7 +20,7 @@ class Team42Strategy:
     def __init__(self, agent: Team42Agent, slowness):
         self.agent: Team42Agent = agent
         self.slowness = slowness
-        self.traverse_order = 1 # magic number here: 0 for x first, 1 for y first
+        self.traverse_order = 1  # magic number here: 0 for x first, 1 for y first
 
     @staticmethod
     def get_brain_strategy(settings: Dict[str, object], agent: Team42Agent):
@@ -58,6 +57,7 @@ class Team42Strategy:
 
     def switch_traverse_order(self):
         self.traverse_order = 0 if self.traverse_order == 1 else 1
+
 
 class NormalStrategy(Team42Strategy):
     def check_update(self, map_state: MapState):
