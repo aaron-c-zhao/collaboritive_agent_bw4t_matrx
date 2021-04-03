@@ -180,7 +180,7 @@ class MapState:
                 'type': type,
                 'data': {
                     'obj_id' : data['block']['id'], # data is block_info
-                    'location' : data['block']['location']
+                    'location' : data['location'] 
                 }
             }
 

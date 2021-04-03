@@ -116,7 +116,7 @@ class Team42Agent(BW4TBrain):
     #     return doors_in_range
 
     def _handle_message(self, message):
-        if type(message) is dict:
+        if type(message) is dict and message['type'] != None:
             self.map_state.update_map(message, None)
 
     def _broadcast(self, type, data):
