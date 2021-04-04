@@ -76,6 +76,9 @@ class Team42Agent(BW4TBrain):
         # handle messages
         # self.log("received: " + str(len(self.received_messages)) + " messages")
         for message in self.received_messages:
+            if message['type'] == 'Hello':
+                continue
+
             if message['agent_id'] != self.map_state.agent_id:
                 self._handle_message(message)
 
