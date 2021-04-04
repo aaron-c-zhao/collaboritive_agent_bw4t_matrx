@@ -54,14 +54,9 @@ class WalkingState(Team42AgentState):
     def process(self, map_state: MapState, state: State):
         super().process(map_state, state)
 
-        if self.strategy.is_all_blocks_found(map_state):
-            next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
-            self.agent.change_state(next_state)
-            return next_state.process(map_state, state)
-
         closest_room_id = self.strategy.get_next_room(map_state)
         # If we've already visited all rooms, then proceed to deliver.
-        if closest_room_id is None:
+        if self.strategy.is_all_blocks_found(map_state) or closest_room_id is None:
             next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
             self.agent.change_state(next_state)
             return next_state.process(map_state, state)

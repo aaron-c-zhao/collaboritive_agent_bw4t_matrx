@@ -34,6 +34,7 @@ class MapState:
         self.carried_blocks = {}  # the blocks that have been confiremed carried by the agent
         self.team_members = {}
         self.agent_location = None
+        self._queue_message('Hello', None)
         self._get_drop_zone(state)  # retrieve the information about drop zone
         self._get_rooms(state)  # retrieve the map information
         self.received_blocks = {}
@@ -175,6 +176,11 @@ class MapState:
                     'obj_id': data['block']['id'],  # data is block_info
                     'location': data['location']
                 }
+            }
+        elif type == 'Hello':
+            content = {
+                'agent_id': self.agent_id,
+                'type': type
             }
 
         # add nessage to queue
