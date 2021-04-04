@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
             world = BW4TWorld(list(team), settings).run()
             stats = Statistics(world.getLogger().getFileName())
-            if stats.isSucces():
+            if stats.isSucces() == 'True':
                 successes += 1
                 our_count += contains_our
                 our_ticks += contains_our * int(stats.getLastTick())
