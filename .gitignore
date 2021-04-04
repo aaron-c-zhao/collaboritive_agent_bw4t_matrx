@@ -11,3 +11,5 @@
 .idea/
 .venv/
 .vscode/
+
+agents_cluster/__pycache__/
