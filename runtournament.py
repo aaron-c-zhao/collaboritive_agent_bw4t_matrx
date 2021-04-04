@@ -46,8 +46,9 @@ if __name__ == "__main__":
 
     settings = DEFAULT_WORLDSETTINGS.copy()
     settings['matrx_paused'] = False
-    settings['deadline'] = 400
+    settings['deadline'] = 500
     settings['tick_duration'] = 0
+    settings['random_seed'] = 1
 
     res = []
 
@@ -101,8 +102,8 @@ if __name__ == "__main__":
 
         data = {
             'agents': team,
-            'success_rate': successes / total,
-            'avg_ticks': ticks / total,
+            'success_rate': str(successes) + '/' + str(total),
+            'avg_ticks': str(ticks / total),
         }
         res.append(data)
 
