@@ -46,6 +46,9 @@ class Team42Agent(BW4TBrain):
     def grab_block(self, block):
         self.holding.append(block)
         self.holding.sort(key=lambda b: b[0])
+        # for testing, makes the normal agent deliver in reverse order
+        # if "normal" in self.agent_id:
+        #     self.holding.sort(key=lambda b: b[0], reverse=True)
 
     def drop_block(self, block):
         for i, b in enumerate(self.holding):

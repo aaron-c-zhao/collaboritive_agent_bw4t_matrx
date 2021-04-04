@@ -8,7 +8,7 @@ from matrx.agents.agent_utils.state import State
 
 import agents1.Team42Agent as Team42Agent
 import agents1.Team42Strategy as Team42Strategy
-from agents1 import Team42MapState
+from agents1.Team42MapState import MapState
 
 
 class Team42AgentState:
@@ -22,14 +22,13 @@ class Team42AgentState:
     def set_agent(self, agent: Team42Agent):
         self.agent = agent
 
-    def process(self, map_state: Team42MapState, state: State):
+    def process(self, map_state: MapState, state: State):
         self.state_tracker.update(state)
         # if we notice that all blocks have been found(by us or other people), then we can start delivering
         # TODO: will the agent go to and pick up blocks that found by other agents and had not been picked up?
         # if self.strategy.is_all_blocks_found(map_state) and not isinstance(self, (DeliveringState, WaitingState)):
         #     next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
         #     self.agent.change_state(next_state)
-        #     # TODO early transition by returning new_state.process() instead of doing nothing.
         #     return next_state.process(map_state, state)
 
         # TODO what to do if our inventory is full, but not all drop_zones have been found?? like we can hold 3 things,
@@ -52,7 +51,7 @@ class Team42AgentState:
 # }
 
 class WalkingState(Team42AgentState):
-    def process(self, map_state: Team42MapState, state: State):
+    def process(self, map_state: MapState, state: State):
         super().process(map_state, state)
 
         if self.strategy.is_all_blocks_found(map_state):
@@ -101,7 +100,7 @@ class ExploringRoomState(Team42AgentState):
         self.unvisited_squares: Set = None
         self.pending_block = None
 
-    def process(self, map_state: Team42MapState, state: State):
+    def process(self, map_state: MapState, state: State):
         super().process(map_state, state)
 
         # if we tried to grab a block previous tick, check if we have actually received it from god.
@@ -147,7 +146,7 @@ class ExploringRoomState(Team42AgentState):
                 num_agents_same_ability = sum([1 for i in nearby_agents if i['ability'] == ability])
                 if num_agents_same_ability == 0 and map_state.agent_ability == 3:
                     return switch_traverse_order(self)
-                seed = random.seed(map_state.agent_id, version=2)
+                random.seed(map_state.agent_id, version=2)
                 if num_agents_same_ability != 0 and random.randint(1, 10) > (10 / num_agents_same_ability):
                     return switch_traverse_order(self)
 
@@ -184,7 +183,6 @@ class ExploringRoomState(Team42AgentState):
         # if we have already arrived to our destination, choose a new destination from the unvisited squares in the room
         if self.navigator.is_done:
             self.navigator.reset_full()
-            # self.navigator.add_waypoint(self.unvisited_squares.pop())
             self.navigator.add_waypoint(next(iter(self.unvisited_squares)))
 
         return self.navigator.get_move_action(self.state_tracker), {}
@@ -204,7 +202,7 @@ class DeliveringState(Team42AgentState):
         super().__init__(strategy, navigator, state_tracker)
         self.delivering_block = None
 
-    def process(self, map_state: Team42MapState, state: State):
+    def process(self, map_state: MapState, state: State):
         super().process(map_state, state)
 
         # if we don't have any more blocks, just wait
@@ -224,6 +222,10 @@ class DeliveringState(Team42AgentState):
         elif self.navigator.is_done:
             # check if it is our turn to place the block
             next_goal = map_state.get_next_drop_zone()
+
+            # for testing reordering
+            # if "normal" not in map_state.agent_id and self.delivering_block[2]['id'] not in next_goal['found_blocks']:
+            #     return None, {}
 
             # check if the next block to deliver is already delivered
             if next_goal['priority'] > self.delivering_block[0]:
@@ -253,7 +255,7 @@ class RiddingState(Team42AgentState):
         self.previous_state = previous_state
         self.blocks_to_remove = blocks_to_rid
 
-    def process(self, map_state: Team42MapState, state: State):
+    def process(self, map_state: MapState, state: State):
         # super().process(map_state, state)
         if len(self.blocks_to_remove):
             return DropObject.__name__, {'object_id': self.blocks_to_remove.pop()}
@@ -262,6 +264,92 @@ class RiddingState(Team42AgentState):
 
 
 class WaitingState(Team42AgentState):
-    def process(self, map_state: Team42MapState, state: State):
+    def process(self, map_state: MapState, state: State):
         # TODO maybe do something smart than just standing there...
+        super().process(map_state, state)
+
+        # for testing, makes the normal agent not want to go to reordering state.
+        # Might need to comment out the super().process(...) as well.
+        # if "normal" in map_state.agent_id:
+        #     return None, {}
+
+        mismatch = map_state.get_mismatched_spots()
+        # if we have more than one mismatched block and if all blocks have been delivered (yet the game hasn't ended)
+        if len(mismatch) > 0 or sum([1 for goal_block in map_state.goal_blocks if goal_block['filled']]) == 3:
+            next_state = ReorderingState(self.strategy, self.navigator, self.state_tracker)
+            self.agent.change_state(next_state)
+            return next_state.process(map_state, state)
+
         return None, {}
+
+
+class ReorderingState(Team42AgentState):
+    def __init__(self, strategy: Team42Strategy, navigator: Navigator, state_tracker: StateTracker):
+        super().__init__(strategy, navigator, state_tracker)
+        self.remaining = None
+        self.pending_goal = None
+
+    def process(self, map_state: MapState, state: State):
+        super().process(map_state, state)
+
+        # if we tried to grab a block previous tick, check if we have actually received it from god.
+        if self.pending_goal is not None:
+            res = state.get_with_property({'carried_by': map_state.agent_id})
+            if res is not None and self.pending_goal['filled']['id'] in [x['obj_id'] for x in res['is_carrying']]:
+                goal_id = self.pending_goal['filled']['id']
+                self.agent.grab_block([
+                    self.pending_goal['priority'],  # priority(order)
+                    self.pending_goal['location'],
+                    self.pending_goal['filled'],
+                    True if goal_id in map_state.carried_blocks.keys() else False])
+                map_state.pop_block(goal_id)
+            else:
+                self.remaining.insert(0, self.pending_goal)
+            self.pending_goal = None
+
+        # pickup all blocks and redeliver them
+        if self.remaining is None:
+            self.remaining = [goal_block.copy() for goal_block in map_state.goal_blocks if
+                              goal_block['filled'] is not None]
+            self.remaining.sort(key=lambda goal_block:
+            utils.get_distance(map_state.get_agent_location(), goal_block['location']))
+            for i, goal_block in enumerate(self.remaining):
+                self.remaining[i]['filled'] = map_state.blocks.get(goal_block['filled'])
+
+        # pickup all blocks
+        while len(self.remaining) > 0:
+            goal_block = self.remaining[0]
+
+            # if we're too far away, temporarily set new destination to get closer to the block and pick it up
+            # TODO extract hardcoded distance
+            if utils.get_distance(map_state.get_agent_location(), goal_block['location']) > 1:
+                if len(self.navigator.get_all_waypoints()) == 0 or self.navigator.is_done:
+                    self.navigator.reset_full()
+                    self.navigator.add_waypoint(goal_block['location'])
+                return self.navigator.get_move_action(self.state_tracker), {}
+
+            # otherwise grab this block
+            self.pending_goal = goal_block
+            self.remaining.remove(goal_block)
+            return GrabObject.__name__, {'object_id': goal_block['filled']['id']}
+
+        next_state = DeliveringState(self.strategy, self.navigator, self.state_tracker)
+        self.agent.change_state(next_state)
+        return next_state.process(map_state, state)
+
+
+class MovingToState(Team42AgentState):
+    def __init__(self, strategy: Team42Strategy, navigator: Navigator, state_tracker: StateTracker,
+                 previous_state: Team42AgentState, target_location: tuple):
+        super().__init__(strategy, navigator, state_tracker)
+        self.previous_state = previous_state
+        self.navigator.add_waypoint(target_location)
+
+    def process(self, map_state: MapState, state: State):
+        super().process(map_state, state)
+
+        if self.navigator.is_done:
+            self.agent.change_state(self.previous_state)
+            return self.previous_state.process(map_state, state)
+
+        return self.navigator.get_move_action(self.state_tracker), {}

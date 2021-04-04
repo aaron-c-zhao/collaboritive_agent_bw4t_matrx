@@ -34,8 +34,8 @@ class MapState:
         self.carried_blocks = {}  # the blocks that have been confiremed carried by the agent
         self.team_members = {}
         self.agent_location = None
-        self._get_drop_zone(state)  # retrive the information about drop zone
-        self._get_rooms(state)  # retrive the map information
+        self._get_drop_zone(state)  # retrieve the information about drop zone
+        self._get_rooms(state)  # retrieve the map information
         self.received_blocks = {}
         self.agent_ability = None
 
@@ -282,7 +282,7 @@ class MapState:
                 parsed_blocks_to_send = self._update_block(self.visible_blocks)
 
                 # match parsed with unparsed blocks, queue unparsed
-                if parsed_blocks_to_send != None:
+                if parsed_blocks_to_send is not None:
                     to_send = []
                     for raw_block in blocks:
                         if self.contains_block(raw_block, parsed_blocks_to_send):
@@ -308,7 +308,7 @@ class MapState:
                             self.team_members[message['agent_id']]['ability'] = self._get_block_status(block, True)
 
             elif message['type'] == 'PickUp':
-                # print(self.agent_id, "-- received blockfound message", message)
+                # print(self.agent_id, "-- received pickup message", message)
                 block = self.blocks.get(message['data']['obj_id'])
                 self.pop_block(block, queue=False)
                 self.team_members[message['agent_id']]['carried_blocks'].append(block)
@@ -425,6 +425,8 @@ class MapState:
         '''
         res = []
         for drop_spot in self.goal_blocks:
+            if drop_spot['filled'] is None:
+                return []
             drop_spot_block = self.blocks.get(drop_spot['filled'])
             if drop_spot['properties']['shape'] != drop_spot_block['shape'] or \
                     drop_spot['properties']['colour'] != drop_spot_block['colour']:
@@ -476,13 +478,15 @@ class MapState:
         '''
         Remove a block from interal collection. Note, the block must be a SINGLE block.
         '''
-        # print(self.blocks)
         if isinstance(block, str):
             block = self.blocks.get(block)
         # add to goal block's found list
         for gb in self.goal_blocks:
             # if this goal block has already been assigned a block, then skip it. This ensures that if there are
             # multiple goals that have the same block, we won't assign the same block to two of them.
+            if gb['filled'] is not None and gb['filled'] == block['id']:
+                gb['filled'] = None
+                break
             if bool(gb['found_blocks']):
                 continue
             if gb['properties']['shape'] == block['shape'] and gb['properties']['colour'] == block['colour']:

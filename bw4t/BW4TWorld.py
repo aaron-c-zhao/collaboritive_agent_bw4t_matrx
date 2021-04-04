@@ -18,7 +18,6 @@ from agents1.human import Human
 
 r = random.getrandbits(23)
 print(r)
-r = 5399595
 
 #FIMAL, DO NOT MODIFY
 DEFAULT_WORLDSETTINGS: dict={
